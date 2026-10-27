@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import ts from 'typescript'
 
 const source = readFileSync('src/client/CodexWorkspaceBrowser.tsx', 'utf8')
-const names = new Set(['stylesheet', 'runningStyles', 'typographyStyles', 'collectionLayoutStyles'])
+const names = new Set(['stylesheet', 'runningStyles', 'typographyStyles', 'layoutStyles'])
 const file = ts.createSourceFile('tree.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
 const styles = []
 for (const statement of file.statements) {
@@ -15,16 +15,14 @@ for (const statement of file.statements) {
 if (styles.length !== names.size) throw new Error('未提取到完整工作区样式')
 const implementation = ts.transpileModule(readFileSync('src/client/workspace-drop-indicator.ts', 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText.replace(/^export /gm, '')
 const verify = async () => {
-  const project = (id, sessions = '') => `<div class="dcu-wb-group-member" id="${id}"><div class="dcu-wb-project"><div class="dcu-wb-project-head">${id}</div><div class="dcu-wb-project-body" data-open="true">${sessions}</div></div></div>`
+  const project = (id, sessions = '') => `<div class="dcu-wb-project" id="${id}"><div class="dcu-wb-project-head">${id}</div><div class="dcu-wb-project-body" data-open="true">${sessions}</div></div>`
   const session = id => `<div class="dcu-wb-session dcu-wb-selected" id="${id}">${id}</div>`
-  const group = (id, body = '') => `<div class="dcu-wb-collection" id="${id}"><div class="dcu-wb-collection-head">${id}</div><div class="dcu-wb-collection-body" data-open="true">${body}</div></div>`
   const cases = [
-    { name: '分组之间', body: group('group-a') + group('group-b'), target: '#group-b', marker: 'dcu-wb-group-order-drop', upper: '#group-a>.dcu-wb-collection-head', lower: '#group-b>.dcu-wb-collection-head' },
-    { name: '分组首项目', body: group('group-c', project('project-a')), target: '#project-a', upper: '#group-c>.dcu-wb-collection-head', lower: '#project-a .dcu-wb-project-head' },
-    { name: '会话到下一项目', body: group('group-d', project('project-b', session('session-a')) + project('project-c')), target: '#project-c', upper: '#session-a', lower: '#project-c .dcu-wb-project-head' },
-    { name: '会话之间', body: group('group-e', project('project-d', session('session-b') + session('session-c'))), target: '#session-c', upper: '#session-b', lower: '#session-c' },
-    { name: '会话末尾', body: group('group-f', project('project-e', session('session-d')) + project('project-f')), target: '#session-d', after: true, upper: '#session-d', lower: '#project-f .dcu-wb-project-head' },
-    { name: '首分组', body: group('group-g'), target: '#group-g', marker: 'dcu-wb-group-order-drop', upper: '.dcu-wb-section-head', lower: '#group-g>.dcu-wb-collection-head' },
+    { name: '项目之间', body: project('project-a') + project('project-b'), target: '#project-b', upper: '#project-a .dcu-wb-project-head', lower: '#project-b .dcu-wb-project-head' },
+    { name: '首项目', body: project('project-a'), target: '#project-a', upper: '.dcu-wb-section-head', lower: '#project-a .dcu-wb-project-head' },
+    { name: '会话到下一项目', body: project('project-b', session('session-a')) + project('project-c'), target: '#project-c', upper: '#session-a', lower: '#project-c .dcu-wb-project-head' },
+    { name: '会话之间', body: project('project-d', session('session-b') + session('session-c')), target: '#session-c', upper: '#session-b', lower: '#session-c' },
+    { name: '会话末尾', body: project('project-e', session('session-d')) + project('project-f'), target: '#session-d', after: true, upper: '#session-d', lower: '#project-f .dcu-wb-project-head' },
   ]
   const results = []
   document.body.innerHTML = ''
@@ -37,7 +35,7 @@ const verify = async () => {
       document.body.append(host)
       const root = host.querySelector('.dcu-wb-tree')
       const target = root.querySelector(test.target)
-      target.classList.add(test.marker ?? 'dcu-wb-drop')
+      target.classList.add('dcu-wb-drop')
       if (test.after) target.classList.add('dcu-wb-drop-after')
       const dispose = mountWorkspaceDropIndicator(root)
       await new Promise(requestAnimationFrame)
@@ -81,7 +79,7 @@ const verify = async () => {
     const host = document.createElement('div')
     host.className = theme
     host.style.cssText = `width:${width}px;display:inline-block;vertical-align:top;margin:8px`
-    host.innerHTML = `<div class="dcu-wb"><div class="dcu-wb-collections">${group('empty-group', '<div class="dcu-wb-empty">暂无项目</div>')}${group('next-group', project('empty-project', '<div class="dcu-wb-nochat">暂无聊天</div>'))}</div></div>`
+    host.innerHTML = `<div class="dcu-wb"><section class="dcu-wb-section"><div class="dcu-wb-section-body" data-open="true"><div class="dcu-wb-collections"><div class="dcu-wb-empty">暂无项目</div>${project('next-project', '<div class="dcu-wb-nochat">暂无聊天</div>')}</div></div></section></div>`
     document.body.append(host)
     const empty = host.querySelector('.dcu-wb-empty')
     const chat = host.querySelector('.dcu-wb-nochat')
@@ -90,33 +88,33 @@ const verify = async () => {
     const rect = empty.getBoundingClientRect()
     const lineTop = rect.top + parseFloat(style.paddingTop)
     const lineBottom = lineTop + parseFloat(style.lineHeight)
-    const above = lineTop - host.querySelector('#empty-group>.dcu-wb-collection-head').getBoundingClientRect().bottom
-    const below = host.querySelector('#next-group>.dcu-wb-collection-head').getBoundingClientRect().top - lineBottom
-    if (Math.abs(above - below) > 0.1) throw new Error(`空分组未居中: ${above}/${below}`)
+    const above = lineTop - rect.top
+    const below = rect.bottom - lineBottom
+    if (Math.abs(above - below) > 0.1 || parseFloat(style.paddingTop) !== 14 || parseFloat(style.paddingBottom) !== 14) throw new Error(`空状态上下留白不均衡: ${above}/${below}`)
     if (style.fontSize !== '13px' || style.lineHeight !== '18px' || style.fontSize !== chatStyle.fontSize || style.lineHeight !== chatStyle.lineHeight || style.color !== chatStyle.color) throw new Error('空状态字体不统一')
     const expectedColor = theme === 'dark' ? 'rgb(112, 120, 116)' : 'rgb(118, 126, 122)'
     if (style.color !== expectedColor || chatStyle.color !== expectedColor) throw new Error('空状态未使用三级灰 token')
     if (chatStyle.padding !== '1px 8px 5px 30px') throw new Error('空聊天四边间距不符')
-    const body = empty.parentElement
+    const body = empty.closest('.dcu-wb-section-body')
     body.dataset.open = 'false'
-    if (body.getBoundingClientRect().height !== 0) throw new Error('空分组收起残留间距')
+    if (body.getBoundingClientRect().height !== 0) throw new Error('项目分区收起残留间距')
     body.dataset.open = 'true'
     results.push({ name: '空状态居中与排版', width, theme, error: Math.abs(above - below), scrollError: 0, above, below })
   }
-  for (const layout of ['pinned', 'grouped', 'flat']) {
+  {
     const host = document.createElement('div')
     host.className = 'dark'
     host.style.cssText = 'width:275px;display:inline-block;vertical-align:top;margin:8px'
     const items = '<div class="dcu-wb-project" id="chat-project"><div class="dcu-wb-project-head">dsh-im-connect</div><div class="dcu-wb-project-body" data-open="true"><div class="dcu-wb-nochat">暂无聊天</div></div></div><div class="dcu-wb-project" id="next-project"><div class="dcu-wb-project-head">dsh-automation</div></div>'
-    host.innerHTML = `<h3>${layout}</h3><div class="dcu-wb"><div class="${layout === 'pinned' ? 'dcu-wb-pinned-list' : layout === 'flat' ? 'dcu-wb-collections' : 'dcu-wb-collection-body'}" data-open="true">${items}</div></div>`
+    host.innerHTML = `<h3>flat</h3><div class="dcu-wb"><div class="dcu-wb-collections">${items}</div></div>`
     document.body.append(host)
     const chat = host.querySelector('.dcu-wb-nochat')
     const style = getComputedStyle(chat)
     const lineTop = chat.getBoundingClientRect().top + parseFloat(style.paddingTop)
     const above = lineTop - host.querySelector('#chat-project>.dcu-wb-project-head').getBoundingClientRect().bottom
     const below = host.querySelector('#next-project>.dcu-wb-project-head').getBoundingClientRect().top - lineTop - parseFloat(style.lineHeight)
-    if (Math.abs(above - below) > 0.1) throw new Error(`暂无聊天 ${layout} 未居中: ${above}/${below}`)
-    results.push({ name: `暂无聊天-${layout}`, above, below, error: Math.abs(above - below), scrollError: 0 })
+    if (Math.abs(above - below) > 0.1) throw new Error(`暂无聊天未居中: ${above}/${below}`)
+    results.push({ name: '暂无聊天', above, below, error: Math.abs(above - below), scrollError: 0 })
   }
   {
     const host = document.createElement('div')

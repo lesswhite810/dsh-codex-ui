@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, stat, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, realpath, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, test, vi } from 'vitest'
@@ -26,7 +26,8 @@ type FixtureOptions = {
 }
 
 async function fixture(options: FixtureOptions = {}) {
-  const root = await mkdtemp(join(tmpdir(), 'dcu-session-move-'))
+  // Windows 的临时目录可能返回 8.3 短路径，而迁移实现会先 realpath；统一从真实路径建 fixture。
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'dcu-session-move-')))
   temporaryDirectories.push(root)
   const sourcePath = join(root, 'source-workspace')
   const targetPath = options.sameWorkspacePath === true ? sourcePath : join(root, 'target-workspace')

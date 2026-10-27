@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { collapseProjectSessionWindow, expandedForCurrentSession, expandedForSessionMove, isTaskSession, moveBefore, nextProjectSessionWindow, orderByIds, pinnedHeaderDropIndicator, projectFolderPresentation, projectSessionWindow, readSessionDrag, readWorkspaceDrag, readWorkspaceGroupDrag, reorderDropBeforeId, resolvePinnedSectionDrop, sessionDropAction, sessionDropAfterRowId, ungroupedSessionIds, visibleSessionIds, writeSessionDrag, writeWorkspaceDrag, writeWorkspaceGroupDrag } from '../src/client/workspace-browser.ts'
+import { collapseProjectSessionWindow, expandedForCurrentSession, expandedForSessionMove, isTaskSession, moveBefore, nextProjectSessionWindow, projectFolderPresentation, projectSessionWindow, readSessionDrag, readWorkspaceDrag, reorderDropBeforeId, sessionDropAction, sessionDropAfterRowId, ungroupedSessionIds, visibleSessionIds, writeSessionDrag, writeWorkspaceDrag } from '../src/client/workspace-browser.ts'
 
 const sessions = {
   a: { id: 'a', origin: 'user', blank: false },
@@ -25,82 +25,35 @@ assert.equal(reorderDropBeforeId(['a', 'b', 'c'], 'a', 'b', false), null, '最�
 assert.equal(reorderDropBeforeId(['a', 'b', 'c'], 'a', 'b', true), 'c', '向下换位时应使用移除被拖项后的下一锚点')
 assert.equal(reorderDropBeforeId(['a', 'b', 'c'], 'c', 'b', true), null, '末项落回原末位时不得显示落点')
 assert.equal(reorderDropBeforeId(['a', 'b', 'c'], 'external', 'b', true), 'c', '跨分区项目应按目标列表计算插入锚点')
-assert.deepEqual(pinnedHeaderDropIndicator(['w1', 'w2']), { kind: 'workspace', workspaceId: 'w1' }, '置顶标题区应复用首项目顶部的插入线')
-assert.deepEqual(pinnedHeaderDropIndicator([]), { kind: 'empty' }, '空置顶区才应渲染独立的起始插入线')
-assert.deepEqual(resolvePinnedSectionDrop('w1', { zone: 'pinned', beforeId: 'w2' }, false), { id: 'w1', beforeId: 'w2' }, '非空置顶必须沿用蓝线锚点')
-assert.deepEqual(resolvePinnedSectionDrop('w1', undefined, true), { id: 'w1' }, '空置顶松手时即使 dragleave 清掉蓝线也必须置顶')
-assert.equal(resolvePinnedSectionDrop('w1', undefined, false), undefined, '非空置顶没有落点时不得误置顶')
-assert.equal(resolvePinnedSectionDrop(undefined, { zone: 'pinned' }, true), undefined, '没有项目载荷时不得置顶')
 assert.deepEqual(
-  orderByIds([{ id: 'a' }, { id: 'b' }, { id: 'c' }], ['c', 'a'], item => item.id),
-  [{ id: 'c' }, { id: 'a' }],
-  '置顶展示必须按置顶 id 顺序，而不是宿主列表顺序',
+  expandedForSessionMove({ existing: false }, { workspaceId: 'target' }),
+  { existing: false, 'section:projects': true, target: true },
+  '移动到项目时必须展开项目区和目标项目',
 )
 assert.deepEqual(
-  expandedForSessionMove({ existing: false }, { workspaceId: 'target', pinned: true, groupId: 'ignored', hasGroups: true }),
-  { existing: false, 'section:pinned': true, 'pin:target': true },
-  '移动到置顶项目时必须展开置顶区和目标项目，且不得误展开项目分组',
-)
-assert.deepEqual(
-  expandedForSessionMove({}, { workspaceId: 'target', pinned: false, groupId: 'research', hasGroups: true }),
-  { 'section:projects': true, 'workspace-group:research': true, target: true },
-  '移动到自定义分组中的项目时必须展开项目区、分组和目标项目',
-)
-assert.deepEqual(
-  expandedForSessionMove({}, { workspaceId: 'target', pinned: false, hasGroups: true }),
-  { 'section:projects': true, 'workspace-group:ungrouped': true, target: true },
-  '存在自定义分组时，移动到未分组项目必须展开未分组分类',
-)
-assert.deepEqual(
-  expandedForSessionMove({}, { workspaceId: 'target', pinned: false, hasGroups: false }),
-  { 'section:projects': true, target: true },
-  '没有自定义分组时只需展开项目区和目标项目',
+  expandedForSessionMove({ 'section:projects': false, other: true }, { workspaceId: 'target' }),
+  { 'section:projects': true, other: true, target: true },
+  '移动会话时只强制打开项目区和目标项目，其它展开状态必须原样保留',
 )
 assert.deepEqual(
   expandedForCurrentSession({ existing: false }, 's1', {
     workspaces: [{ workspaceId: 'target', sessionIds: ['s1'] }],
-    pinnedWorkspaceIds: ['target'],
-    groups: [{ id: 'ignored', workspaceIds: ['target'] }],
     recentIds: [],
   }),
-  { existing: false, 'section:pinned': true, 'pin:target': true },
-  '当前会话在置顶项目中时必须展开置顶区和该项目',
+  { existing: false, 'section:projects': true, target: true },
+  '当前会话在项目中时必须展开项目区和该项目',
 )
 assert.deepEqual(
   expandedForCurrentSession({}, 's1', {
     workspaces: [{ workspaceId: 'target', sessionIds: ['s1'] }],
-    pinnedWorkspaceIds: [],
-    groups: [{ id: 'research', workspaceIds: ['target'] }],
-    recentIds: [],
-  }),
-  { 'section:projects': true, 'workspace-group:research': true, target: true },
-  '当前会话在自定义分组项目中时必须展开项目区、分组和该项目',
-)
-assert.deepEqual(
-  expandedForCurrentSession({}, 's1', {
-    workspaces: [{ workspaceId: 'target', sessionIds: ['s1'] }],
-    pinnedWorkspaceIds: [],
-    groups: [{ id: 'research', workspaceIds: ['other'] }],
-    recentIds: [],
-  }),
-  { 'section:projects': true, 'workspace-group:ungrouped': true, target: true },
-  '存在自定义分组时，未分组项目中的当前会话必须展开未分组分类',
-)
-assert.deepEqual(
-  expandedForCurrentSession({}, 's1', {
-    workspaces: [{ workspaceId: 'target', sessionIds: ['s1'] }],
-    pinnedWorkspaceIds: [],
-    groups: [],
-    recentIds: [],
+    recentIds: ['s1'],
   }),
   { 'section:projects': true, target: true },
-  '没有自定义分组时，当前会话只需展开项目区和所属项目',
+  '当前会话同时出现在项目和最近列表时必须只展开项目',
 )
 assert.deepEqual(
   expandedForCurrentSession({ existing: false }, 's1', {
     workspaces: [],
-    pinnedWorkspaceIds: [],
-    groups: [],
     recentIds: ['s1'],
   }),
   { existing: false, 'section:recent': true },
@@ -109,8 +62,6 @@ assert.deepEqual(
 assert.deepEqual(
   expandedForCurrentSession({ existing: false, 'section:projects': false }, 'missing', {
     workspaces: [{ workspaceId: 'target', sessionIds: ['s1'] }],
-    pinnedWorkspaceIds: [],
-    groups: [{ id: 'research', workspaceIds: ['target'] }],
     recentIds: ['other'],
   }),
   { existing: false, 'section:projects': false },
@@ -142,7 +93,7 @@ assert.deepEqual(
   writeSessionDrag(data, 's1', '会话')
   writeWorkspaceDrag(data, 'w1', '项目')
   assert.equal(readSessionDrag(data), 's1', '会话拖拽必须能从 dataTransfer 读回')
-  assert.equal(readWorkspaceDrag(data), undefined, '同时带会话载荷时不得把父项目当成置顶目标')
+  assert.equal(readWorkspaceDrag(data), undefined, '同时带会话载荷时不得把父项目当成拖拽目标')
 }
 {
   const store = new Map<string, string>()
@@ -156,17 +107,10 @@ assert.deepEqual(
   const types: string[] = []
   const data = { effectAllowed: '', types, setData: (type: string, value: string) => { store.set(type, value); if (!types.includes(type)) types.push(type) }, getData: (type: string) => store.get(type) ?? '' } as unknown as DataTransfer
   writeSessionDrag(data, 's1', '会话')
-  assert.equal(readWorkspaceDrag(data), undefined, '会话拖拽不得被识别为可置顶项目')
+  assert.equal(readWorkspaceDrag(data), undefined, '会话拖拽不得被识别为项目拖拽')
   assert.equal(readSessionDrag({ getData: (type: string) => type === 'text/plain' ? 'dcu-session:s1' : '' } as unknown as DataTransfer), 's1', '自定义类型被剥掉时必须还能从 text/plain 读出会话')
 }
 {
-  const store = new Map<string, string>()
-  const data = { effectAllowed: '', setData: (type: string, value: string) => { store.set(type, value) }, getData: (type: string) => store.get(type) ?? '' } as unknown as DataTransfer
-  writeWorkspaceGroupDrag(data, 'g1', '项目分组')
-  assert.equal(readWorkspaceGroupDrag(data), 'g1', '项目分组拖拽必须能从 dataTransfer 读回')
-  assert.equal(readWorkspaceDrag(data, 'stale-workspace'), undefined, '分组载荷不得被旧项目状态误判为项目拖拽')
-  assert.equal(readSessionDrag(data), undefined, '分组载荷不得被识别为会话拖拽')
-
   assert.equal(sessionDropAction('source', 'source'), 'reorder', '同项目拖放必须继续执行会话排序')
   assert.equal(sessionDropAction('source', 'target'), 'move', '跨项目拖放必须执行会话迁移')
   assert.equal(sessionDropAction(undefined, 'target'), 'move', '未归属项目的最近会话拖入项目时必须执行会话迁移')

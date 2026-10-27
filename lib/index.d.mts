@@ -7,7 +7,7 @@ type HostRequest = {
   [Symbol.asyncIterator]?: () => AsyncIterator<Uint8Array | string>;
 };
 declare class RequestBodyTooLargeError extends Error {}
-/** 有界读取 Node HTTP body；偏好接口只接受很小的 JSON。 */
+/** 有界读取 Node HTTP body；业务接口只接受很小的 JSON。 */
 declare function readRequestBody(request: HostRequest, maxBytes?: number): Promise<string>;
 declare const inject: string[];
 /** 提供不泄露地址、命令和凭证的连接器目录。 */

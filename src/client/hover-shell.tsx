@@ -13,7 +13,6 @@ export type HoverCardTip = {
   path?: string
   count?: number
   unreadCount?: number
-  pinned?: boolean
 }
 
 export const HOVER_TIP_SHOW_DELAY_MS = 1000

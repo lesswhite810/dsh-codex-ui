@@ -35,7 +35,6 @@ Host compatibility: Full DeepSeek Harness `0.2.x` line (`>=0.2.0-rc.1 <0.3.0-0`)
 - **Manage everyday tasks**: rename, archive, or fork conversations, and open project folders from their menus.
 - **Revisit long chats**: select a turn marker to jump directly to the corresponding question.
 - **Reuse earlier input**: press Up/Down in an empty composer to recall text submitted in the current workspace.
-- **Add features as needed**: check companion plugins in **Settings → About** and install or update the ones you need.
 
 ## Screenshots
 
@@ -54,10 +53,6 @@ General settings: dedicated settings page with section navigation in the light t
 Conversation menu: rename, pin, unread, archive, fork, copy, and delete.
 
 ![Conversation menu](assets/screenshots/session-menu.png)
-
-**Settings → About** lists the companion plugins and their install state.
-
-![About page and companion plugins](assets/screenshots/settings-about.png)
 
 ## Prerequisites
 
@@ -81,7 +76,6 @@ For a desktop workbench, download [DSH Codex Desktop](https://github.com/Micheng
 | [Simplify](https://github.com/MichengAI/dsh-simplify) | Use `/simplify` to improve code within your Git changes |
 | [PUA](https://github.com/MichengAI/dsh-pua) | Guide the Agent to try new approaches after failures, investigate causes, and verify results before completion |
 | [Code Review](https://github.com/MichengAI/dsh-code-review) | Use `/review` to request an independent Agent code review and receive the report in the current conversation |
-| [Codex Pet](https://github.com/MichengAI/dsh-codex-pet) | View conversation notifications and respond to tool approvals and questions through a desktop pet |
 
 ## Installation
 
@@ -120,7 +114,6 @@ Open DSH Web. The left navigation is rendered by this plugin.
 | Reuse input | Press Up/Down in an empty composer to recall text submitted in the current workspace. |
 | Jump between turns | Use the turn marks on the left of the current conversation. |
 | Inspect connectors | Open **Settings → Connectors**. Addresses, commands, and credentials are never shown. |
-| Check companion plugins | Open **Settings → About** to install or update individual companion plugins. |
 
 ## FAQ
 

@@ -145,8 +145,6 @@ export function CodexSettingsPage({ wide, sections, onboarding, connectionState,
     // 只为活动引导保留模态区域，不把无关菜单或其整棵包装子树一并放行。
     const guideModals = step === undefined ? [] : settingsOverlays('[role="dialog"][aria-modal="true"],[role="alertdialog"][aria-modal="true"]')
     const isolate = (element: HTMLElement) => {
-      // Pet 使用 body 下的专用容器，跨页面保留显示与交互，不放行其他浮层。
-      if (element.parentElement === document.body && element.hasAttribute('data-dsh-pet-overlay')) return
       // Windows 标题栏的 Desktop 菜单属于窗口边框，不随设置页一起隐藏。
       if (element.hasAttribute('data-windows-menu')) return
       // 官方 Toast createPortal 到 body；只放行 body 直接子级，避免会话树里的 role=alert 被当成 sibling 漏出。
@@ -180,7 +178,7 @@ export function CodexSettingsPage({ wide, sections, onboarding, connectionState,
       const target = event.target
       if (!(target instanceof Node) || page.current === null || !settingsElementAvailable(page.current)) return
       if (page.current.contains(target) || onboardingRoot.current?.contains(target)
-        || [...document.querySelectorAll('body > [data-dsh-pet-overlay], body > [role=alert]')].some(root => root.contains(target))
+        || [...document.querySelectorAll('body > [role=alert]')].some(root => root.contains(target))
         // Desktop 菜单留在设置页之外，但不能被焦点守卫抢回返回按钮。
         || [...document.querySelectorAll('[data-windows-menu]')].some(root => root.contains(target))
         || settingsOverlays().some(overlay => overlay.contains(target))) return
@@ -193,7 +191,7 @@ export function CodexSettingsPage({ wide, sections, onboarding, connectionState,
         .filter(settingsElementAvailable)
         .flatMap(host => [...(host.shadowRoot?.querySelectorAll<HTMLElement>('button') ?? host.querySelectorAll<HTMLElement>('button'))])
         .filter(button => button.tabIndex >= 0 && !button.matches(':disabled') && getComputedStyle(button).display !== 'none')
-      const roots = [page.current, onboardingRoot.current, ...document.querySelectorAll<HTMLElement>('body > [data-dsh-pet-overlay], body > [role=alert]')].filter((root): root is HTMLElement => root !== null)
+      const roots = [page.current, onboardingRoot.current, ...document.querySelectorAll<HTMLElement>('body > [role=alert]')].filter((root): root is HTMLElement => root !== null)
       const pageItems = roots.flatMap(root => [...root.querySelectorAll<HTMLElement>('button,input,select,textarea,a[href],[tabindex]')])
         .filter(element => element.tabIndex >= 0 && !element.matches(':disabled') && settingsElementAvailable(element))
       const items = [...menuButtons, ...pageItems]

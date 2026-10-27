@@ -385,18 +385,10 @@ test('搜索和窄轨切换不会重渲染或重新挂载工作区树', async ()
   }
 })
 
-test('扩展分组默认收起，展开偏好会持久化且悬停不改变展开状态', async () => {
-  const storage = window.localStorage ?? new Map<string, string>()
-  if (window.localStorage === undefined) {
-    Object.defineProperty(window, 'localStorage', {
-      configurable: true,
-      value: { getItem: (key: string) => storage.get(key) ?? null, setItem: (key: string, value: string) => { storage.set(key, value) }, removeItem: (key: string) => { storage.delete(key) } },
-    })
-  }
-  window.localStorage.removeItem('dsh-codex-ui.sidebar-expansion.v1')
+test('侧栏不再渲染扩展管理分组，主导航只剩新建任务', async () => {
   const container = document.createElement('div')
   document.body.appendChild(container)
-  let root = createRoot(container)
+  const root = createRoot(container)
   const sessions = { ids: [], byId: {} }
   const workspaces = { archivedSessionIds: [], items: [] }
   const base = {
@@ -418,44 +410,21 @@ test('扩展分组默认收起，展开偏好会持久化且悬停不改变展�
 
   try {
     await act(async () => { root.render(createElement(CodexSidebar, base as never)) })
-    const extensions = container.querySelector<HTMLButtonElement>('.dcu-extensions-toggle')
-    const extensionsGroup = container.querySelector<HTMLElement>('.dcu-extensions-group')
-    expect(extensions?.getAttribute('aria-expanded')).toBe('false')
-
-    await act(async () => { extensions?.click() })
-    expect(extensions?.getAttribute('aria-expanded')).toBe('true')
-    expect(window.localStorage.getItem('dsh-codex-ui.sidebar-expansion.v1')).toBe('{"extensions":true}')
-    expect(container.querySelector<HTMLElement>('.dcu-extension-panel')?.getAttribute('data-open')).toBe('true')
-    expect([...container.querySelectorAll<HTMLButtonElement>('.dcu-extension-items button')].every(item => item.tabIndex === 0)).toBe(true)
-
-    await act(async () => { extensionsGroup?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })) })
-    expect(extensions?.getAttribute('aria-expanded')).toBe('true')
-    await act(async () => { extensionsGroup?.dispatchEvent(new MouseEvent('mouseout', { bubbles: true })) })
-    expect(extensions?.getAttribute('aria-expanded')).toBe('true')
-
-    await act(async () => { root.unmount() })
-    root = createRoot(container)
-    await act(async () => { root.render(createElement(CodexSidebar, base as never)) })
-    const remountedExtensions = container.querySelector<HTMLButtonElement>('.dcu-extensions-toggle')
-    const remountedItems = container.querySelectorAll<HTMLButtonElement>('.dcu-extension-items button')
-    expect(remountedExtensions?.getAttribute('aria-expanded')).toBe('true')
-    expect([...remountedItems].every(item => item.tabIndex === 0)).toBe(true)
-
-    await act(async () => { remountedExtensions?.click() })
-    expect(remountedExtensions?.getAttribute('aria-expanded')).toBe('false')
-    expect(window.localStorage.getItem('dsh-codex-ui.sidebar-expansion.v1')).toBe('{"extensions":false}')
-    remountedExtensions?.focus()
-    expect(document.activeElement).toBe(remountedExtensions)
-    expect([...remountedItems].every(item => item.tabIndex === -1)).toBe(true)
+    expect(container.querySelector('.dcu-extensions-group')).toBeNull()
+    expect(container.querySelector('.dcu-extensions-toggle')).toBeNull()
+    expect(container.querySelector('.dcu-extension-items')).toBeNull()
+    expect(container.querySelector('.dcu-extension-panel')).toBeNull()
+    const topLevel = [...container.querySelectorAll<HTMLButtonElement>('.dcu-menu > button')].map(button => button.textContent)
+    expect(topLevel).toEqual(['sidebar.newTask'])
+    const compactLabels = [...container.querySelectorAll<HTMLButtonElement>('.dcu-compact-nav button')].map(button => button.getAttribute('aria-label'))
+    expect(compactLabels).toEqual(['sidebar.newTask', 'sidebar.search'])
   } finally {
     await act(async () => { root.unmount() })
     container.remove()
-    window.localStorage.removeItem('dsh-codex-ui.sidebar-expansion.v1')
   }
 })
 
-test('插件侧栏面板收进扩展，展开菜单和窄轨都能看到，不再画到顶栏', async () => {
-  window.localStorage.removeItem('dsh-codex-ui.sidebar-expansion.v1')
+test('任务看板等插件面板不再出现在侧栏，扩展入口收回设置与全局搜索', async () => {
   const container = document.createElement('div')
   document.body.appendChild(container)
   const root = createRoot(container)
@@ -488,33 +457,16 @@ test('插件侧栏面板收进扩展，展开菜单和窄轨都能看到，不�
         globalPanels: { getSnapshot: () => panels, subscribe: () => () => {} },
       } as never))
     })
-    const extensionItems = container.querySelector('.dcu-extension-items')
-    const extensionText = extensionItems?.textContent ?? ''
-    expect(extensionText).toContain('自动化任务')
-    expect(extensionText).toContain('任务看板')
-    expect(extensionText).toContain('上下文洞察')
-    expect(extensionText).toContain('sidebar.schedule')
-    expect(extensionText).toContain('sidebar.assistant')
-    const extensionLabels = [...container.querySelectorAll('.dcu-extension-items button')].map(button => button.textContent ?? '')
-    const assistantAt = extensionLabels.indexOf('sidebar.assistant')
-    expect(extensionLabels.slice(assistantAt + 1)).toEqual(['自动化任务', '任务看板', '上下文洞察'])
-    expect(container.querySelector('.dcu-menu [aria-label="sidebar.tasksTab"]')).toBeNull()
-    const pluginButtons = [...container.querySelectorAll<HTMLButtonElement>('.dcu-extension-items button')].filter(button => button.textContent === '任务看板' || button.textContent === '上下文洞察')
-    expect(pluginButtons).toHaveLength(2)
-    expect(pluginButtons.every(button => button.tabIndex === -1)).toBe(true)
-    const topLevel = [...container.querySelectorAll('.dcu-menu > button, .dcu-menu > .dcu-global-panel')]
-    expect(topLevel.some(button => button.textContent === '任务看板' || button.textContent === '上下文洞察')).toBe(false)
-    expect(container.querySelector('.dcu-compact-nav button[aria-label="任务看板"]')).not.toBeNull()
-    expect(container.querySelector('.dcu-compact-nav button[aria-label="上下文洞察"]')).not.toBeNull()
-    const compactLabels = [...container.querySelectorAll('.dcu-compact-nav button')].map(button => button.getAttribute('aria-label'))
-    const compactAssistant = compactLabels.indexOf('sidebar.assistant')
-    expect(compactLabels.slice(compactAssistant + 1)).toEqual(['自动化任务', '任务看板', '上下文洞察'])
-    pluginButtons[0]?.click()
-    expect(selectPanel).toHaveBeenCalledWith('board')
+    expect(container.querySelector('.dcu-extension-items')).toBeNull()
+    const text = container.textContent ?? ''
+    expect(text).not.toContain('任务看板')
+    expect(text).not.toContain('上下文洞察')
+    expect(text).not.toContain('自动化任务')
+    expect(container.querySelector('.dcu-compact-nav button[aria-label="任务看板"]')).toBeNull()
+    expect(selectPanel).not.toHaveBeenCalled()
   } finally {
     await act(async () => { root.unmount() })
     container.remove()
-    window.localStorage.removeItem('dsh-codex-ui.sidebar-expansion.v1')
   }
 })
 

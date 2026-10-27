@@ -5,7 +5,7 @@ const OFFICIAL_TURN_NAVIGATOR_ATTRIBUTE = 'data-dcu-official-turn-navigator'
 const OFFICIAL_TURN_MARK_ATTRIBUTE = 'data-dcu-official-turn-mark'
 const OFFICIAL_TURN_TOOLTIP_ATTRIBUTE = 'data-dcu-official-turn-tooltip'
 const OFFICIAL_TURN_NAVIGATOR_SUPPORTED_ATTRIBUTE = 'data-dcu-official-turn-navigator-supported'
-const CAPABILITIES_ENDPOINT = `${CODEX_UI_API_ENDPOINTS.dependencies}?action=capabilities`
+const CAPABILITIES_ENDPOINT = CODEX_UI_API_ENDPOINTS.capabilities
 
 function isOfficialTurnNavigator(element: Element): element is HTMLElement {
   if (!(element instanceof HTMLElement) || element.tagName !== 'NAV') return false

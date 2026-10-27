@@ -1,7 +1,7 @@
 /** 浏览器客户端插件的 Host 入口；客户端逻辑由 dsh.client 加载。 */
 import type { Context } from '@deepseek-ai/cordis'
 import { CODEX_UI_API_ENDPOINTS } from './business-api.ts'
-import { canRequestParentReload, dependencyStatuses, disposeDependencyInstaller, installDependency, installProgressSnapshot, resolveDependencyRuntime, runtimeSupportsOfficialTurnNavigator, scheduleParentPluginReload, updateAllDependencies } from './dependency-manager.ts'
+import { resolveDependencyRuntime, runtimeSupportsOfficialTurnNavigator } from './runtime-capabilities.ts'
 import { authorizedExplorerWorkspacePath } from './explorer-path-policy.ts'
 import { hostServices } from './host-services.ts'
 import { ForegroundExplorer } from './native-explorer.ts'
@@ -10,7 +10,7 @@ import { registerOnboardingSettings } from './onboarding-settings.ts'
 import { parsePinnedWorkspaceIds, parseStoredWorkspaceGroups, readWorkspacePreferences, WORKSPACE_PREFERENCES_VERSION, writeWorkspacePreferences } from './workspace-preferences.ts'
 
 const connectorsEndpoint = CODEX_UI_API_ENDPOINTS.connectors
-const dependenciesEndpoint = CODEX_UI_API_ENDPOINTS.dependencies
+const capabilitiesEndpoint = CODEX_UI_API_ENDPOINTS.capabilities
 const explorerEndpoint = CODEX_UI_API_ENDPOINTS.openInExplorer
 const preferencesEndpoint = CODEX_UI_API_ENDPOINTS.preferences
 const sessionMoveEndpoint = CODEX_UI_API_ENDPOINTS.sessionMove
@@ -28,13 +28,6 @@ function headerValue(headers: Record<string, string | string[] | undefined>, nam
   if (typeof value === 'string') return value
   if (Array.isArray(value)) return value[0]
   return undefined
-}
-
-/** 把安装错误收成可给浏览器看的文案：我们自己的中文说明保留，带本地路径的底层错误脱敏。 */
-export function publicDependencyError(error: unknown): string {
-  const message = error instanceof Error ? error.message : '依赖管理暂不可用。'
-  if (/[A-Za-z]:[\\/]|\/(?:home|root|Users|var|tmp)\//.test(message)) return '依赖管理暂不可用，请查看服务端日志。'
-  return message
 }
 
 export class RequestBodyTooLargeError extends Error {}
@@ -170,66 +163,24 @@ export function apply(ctx: Context): void {
         }
       },
     })
-    const disposeDependencies = host.webServer.register({
+    const disposeCapabilities = host.webServer.register({
       kind: 'exact',
-      path: dependenciesEndpoint,
+      path: capabilitiesEndpoint,
       handler: async (request, response) => {
         if (!authenticateBusinessRequest(ctx, request, response)) return
-        const url = new URL(request.url ?? '/', 'http://localhost')
-        try {
-          if (request.method === 'GET') {
-            if (url.searchParams.get('action') === 'capabilities') {
-              const capabilities = {
-                officialTurnNavigator: await runtimeSupportsOfficialTurnNavigator(resolveDependencyRuntime(ctx)),
-              }
-              response.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
-              response.end(JSON.stringify({ capabilities }))
-              return
-            }
-            if (url.searchParams.get('action') === 'progress') {
-              response.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
-              response.end(JSON.stringify({ progress: installProgressSnapshot() }))
-              return
-            }
-            const dependencies = await dependencyStatuses(resolveDependencyRuntime(ctx))
-            response.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
-            response.end(JSON.stringify({ dependencies }))
-            return
-          }
-          if (request.method === 'POST') {
-            if (url.searchParams.get('action') === 'update-all') {
-              const runtime = resolveDependencyRuntime(ctx)
-              const notifyParent = canRequestParentReload(runtime)
-              const autoReload = runtime.environmentKind === 'desktop' || notifyParent
-              let restartAfterResponse = false
-              const { dependencies, updatedCount } = await updateAllDependencies(() => {
-                restartAfterResponse = notifyParent
-                return restartAfterResponse
-              }, runtime)
-              response.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
-              response.end(JSON.stringify({ dependencies, restartRequired: updatedCount > 0, autoReload }))
-              if (restartAfterResponse) scheduleParentPluginReload()
-              return
-            }
-            const runtime = resolveDependencyRuntime(ctx)
-            const notifyParent = canRequestParentReload(runtime)
-            const autoReload = runtime.environmentKind === 'desktop' || notifyParent
-            let restartAfterResponse = false
-            const dependencies = await installDependency(url.searchParams.get('dependency'), () => {
-              restartAfterResponse = notifyParent
-              return restartAfterResponse
-            }, runtime)
-            response.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
-            response.end(JSON.stringify({ dependencies, restartRequired: true, autoReload }))
-            if (restartAfterResponse) scheduleParentPluginReload()
-            return
-          }
+        if (request.method !== 'GET') {
           response.writeHead(405)
           response.end()
+          return
+        }
+        try {
+          const capabilities = { officialTurnNavigator: await runtimeSupportsOfficialTurnNavigator(resolveDependencyRuntime(ctx)) }
+          response.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
+          response.end(JSON.stringify({ capabilities }))
         } catch (error) {
-          ctx.logger.warn('dependencies endpoint failed: %s', error)
+          ctx.logger.warn('capabilities endpoint failed: %s', error)
           response.writeHead(503, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
-          response.end(JSON.stringify({ error: publicDependencyError(error) }))
+          response.end(JSON.stringify({ error: '运行时能力探测暂不可用。' }))
         }
       },
     })
@@ -355,10 +306,9 @@ export function apply(ctx: Context): void {
       },
     })
     return () => {
-      disposeDependencyInstaller()
       foregroundExplorer.dispose()
       disposeConnectors()
-      disposeDependencies()
+      disposeCapabilities()
       disposeExplorer()
       disposePreferences()
       disposeSessionMove()

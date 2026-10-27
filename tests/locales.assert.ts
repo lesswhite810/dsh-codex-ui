@@ -20,7 +20,6 @@ const locales = readFileSync(join(srcRoot, 'client/locales.ts'), 'utf8')
 const channelBrowser = readFileSync(join(srcRoot, 'client/ChannelBrowser.tsx'), 'utf8')
 const connectorsSection = readFileSync(join(srcRoot, 'client/ConnectorsSection.tsx'), 'utf8')
 const clientIndex = readFileSync(join(srcRoot, 'client/index.ts'), 'utf8')
-const aboutSection = readFileSync(join(srcRoot, 'client/AboutSection.tsx'), 'utf8')
 const used = source.replace(locales, '')
 
 for (const [key, value] of Object.entries(en)) {
@@ -45,15 +44,12 @@ const sessionTitleProvider = readFileSync(join(srcRoot, 'session-title-provider.
 assert.doesNotMatch(sessionTitleProvider, /SYSTEM_PROMPT|类型必须是其中一个|根据这条用户消息/, '会话自动命名提示词不得硬编码中文，必须走 locale 词典')
 assert.match(source, /sessionTitle\.system/, '会话自动命名必须使用 locale 系统提示词')
 assert.match(source, /sessionTitle\.type\.feature/, '会话自动命名类型必须使用 locale 词典')
-assert.doesNotMatch(aboutSection, /return message !== '' \? message/, '关于页不得直接显示 Host 返回的未本地化错误')
 
 const dead: string[] = []
 for (const key of Object.keys(zh)) {
   if (used.includes(`'${key}'`) || used.includes(`"${key}"`)) continue
   if (key.startsWith('search.') && used.includes('search.${')) continue
   if (key.startsWith('permission.') && used.includes('permission.${')) continue
-  if (key.startsWith('about.dependency.') && used.includes('about.dependency.${')) continue
-  if (key.startsWith('about.progress.') && used.includes('about.progress.${')) continue
   dead.push(key)
 }
 assert.deepEqual(dead, [], `词典不得保留未被引用的键：${dead.join(', ')}`)

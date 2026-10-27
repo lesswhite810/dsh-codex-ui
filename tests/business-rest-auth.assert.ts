@@ -8,7 +8,7 @@ import { HostConnectionService } from '@deepseek-ai/dsh-client-connection'
 
 const expectedPaths = [
   '/api/dsh-codex-ui/connectors',
-  '/api/dsh-codex-ui/dependencies',
+  '/api/dsh-codex-ui/capabilities',
   '/api/dsh-codex-ui/open-in-explorer',
   '/api/dsh-codex-ui/preferences',
   '/api/dsh-codex-ui/session-move',

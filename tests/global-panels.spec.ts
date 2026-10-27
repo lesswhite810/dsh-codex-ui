@@ -1,10 +1,8 @@
 // @vitest-environment jsdom
-import { act, createElement } from 'react'
-import { createRoot } from 'react-dom/client'
 import { expect, test, vi } from 'vitest'
-import { GlobalPanelButtons, createGlobalPanelSource } from '../src/client/global-panels.tsx'
+import { createGlobalPanelSource } from '../src/client/global-panels.tsx'
 
-test('官方插件面板不进入侧栏顶栏，扩展管理已有自己的入口', () => {
+test('官方插件面板不进入侧栏顶栏，插件面板清单只来自宿主 sidebar.panellist 插槽', () => {
   const entries = [
     { options: { id: 'plugins', order: 0, label: () => '插件' } },
     { options: { id: 'files', order: 2, label: () => '文件' } },
@@ -35,18 +33,3 @@ test('面板注册、重命名、移除和语言更新实时同步并释放订�
   expect(listeners.size).toBe(0)
 })
 
-test.each([true, false])('全局面板不再额外插入返回会话的任务入口；展开=%s', async wide => {
-  const mount = document.createElement('div'); document.body.append(mount)
-  const root = createRoot(mount), select = vi.fn()
-  try {
-    await act(async () => root.render(createElement(GlobalPanelButtons, {
-      panels: [{ id: 'schedules', label: '自动化任务', order: 1 }], activeId: 'schedules', wide,
-      selectPanel: select, renderIcon: (_id, active) => active ? '●' : '○',
-    })))
-    expect(mount.querySelector('[aria-label="任务"]')).toBeNull()
-    const panel = mount.querySelector<HTMLButtonElement>('[aria-label="自动化任务"]')!
-    expect(panel.getAttribute('aria-current')).toBe('page')
-    panel.click()
-    expect(select.mock.calls).toEqual([['schedules']])
-  } finally { await act(async () => root.unmount()); mount.remove() }
-})

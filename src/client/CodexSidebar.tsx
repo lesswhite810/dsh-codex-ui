@@ -4,9 +4,7 @@ import {
   BrandWordmark, Input, SegmentedTabs, type SegmentedTab,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import {
-  IconChevronRightOutlineMedium, IconEnhanceOutlineMedium, IconFolderCloseMedium,
-  IconLinkOutlineMedium, IconNewChatOutlineMedium, IconPanelLeftOutlineMedium, IconPersonalizationOutlineMedium, IconSearchOutlineMedium, IconSkillOutlineMedium,
-  IconUserOutlineMedium,
+  IconFolderCloseMedium, IconNewChatOutlineMedium, IconPanelLeftOutlineMedium, IconSearchOutlineMedium,
 } from './host-icons.ts'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
@@ -22,7 +20,6 @@ import { applySidebarWidth, findSidebarFrame, parseSidebarGrid, SLIM_SIDEBAR_PX 
 import { isTaskSession } from './workspace-browser.ts'
 import { clearAutomationTaskSettingsRequest, requestAutomationTaskSettings } from './automation-task-settings.ts'
 import type { UseSessionPendingInteraction, UseSessionStatus } from './session-pending.ts'
-import { browserStorage, readTreeExpansionState, writeTreeExpansionState } from './tree-expansion.ts'
 import { NEW_CONVERSATION_STYLE } from './new-conversation-style.ts'
 import { COMPOSER_TOOL_MENU_STYLE } from './composer-tool-menus.ts'
 import { DesktopNavigationControls } from './DesktopNavigationControls.tsx'
@@ -44,19 +41,6 @@ const getEmptyCompanionTabs = (): CompanionTabAvailability => EMPTY_COMPANION_TA
 const emptyFooterActions: readonly FooterAction[] = []
 const getEmptyFooterActions = (): readonly FooterAction[] => emptyFooterActions
 const SIDEBAR_COLLAPSE_SETTLE_MS = 500
-const SIDEBAR_EXPANSION_STORAGE_KEY = 'dsh-codex-ui.sidebar-expansion.v1'
-const EXTENSIONS_EXPANSION_KEY = 'extensions'
-
-function readExtensionsOpen(): boolean {
-  return readTreeExpansionState(browserStorage(), SIDEBAR_EXPANSION_STORAGE_KEY)[EXTENSIONS_EXPANSION_KEY] === true
-}
-
-function writeExtensionsOpen(open: boolean): void {
-  const storage = browserStorage()
-  const expanded = readTreeExpansionState(storage, SIDEBAR_EXPANSION_STORAGE_KEY)
-  writeTreeExpansionState(storage, SIDEBAR_EXPANSION_STORAGE_KEY, { ...expanded, [EXTENSIONS_EXPANSION_KEY]: open })
-}
-
 type CodexSidebarInjected = {
   navigationHistory?: NavigationHistory
   workspaceShortcuts?: WorkspaceShortcutSource
@@ -87,8 +71,6 @@ export type CodexSidebarProps =
   & PropsLocale<typeof NS>
   & CodexSidebarInjected
 
-const emptyPanels: readonly import('./global-panels.tsx').GlobalPanel[] = []
-const getEmptyPanels = () => emptyPanels
 const useLegacyPanelInfo = <T,>(selector: (info: { activePanelId: string | null }) => T): T => selector({ activePanelId: null })
 
 const stylesheet = `
@@ -103,7 +85,6 @@ body[data-we-sidebar-glass] .dcu-expanded-shell,body[data-we-sidebar-glass] .dcu
 .dcu-icon:hover,.dcu-menu button:hover:not(:disabled),.dcu-footer-link:hover{background:var(--dcu-sidebar-hover);color:var(--dcu-sidebar-primary)}
 .dcu-menu{padding:0 6px 8px;display:grid;gap:2px}.dcu-menu button,.dcu-footer-link{display:grid;grid-template-columns:20px minmax(0,1fr);column-gap:8px;align-items:center;width:100%;min-height:36px;padding:0 4px;border-radius:8px;color:var(--dcu-sidebar-navigation);font-size:14px;line-height:20px;text-align:left;font-weight:400}
 .dcu-menu-icon{display:grid;place-items:center start;width:20px;height:20px}.dcu-menu-icon svg,.dcu-footer-link svg{display:block;width:16px;height:16px;color:var(--dcu-sidebar-icon)}.dcu-menu button:disabled{color:var(--dcu-sidebar-secondary);cursor:default;opacity:1}.dcu-menu button:disabled svg{color:var(--dcu-sidebar-secondary)}
-.dcu-extensions-group{display:grid}.dcu-extension-leading{position:relative;display:block;width:16px;height:16px}.dcu-extension-leading svg{position:absolute;inset:0;transition:opacity 140ms ease-out,transform 220ms cubic-bezier(.16,1,.3,1)}.dcu-extension-default-icon{opacity:1}.dcu-extension-state-arrow{opacity:0;transform:rotate(0)}.dcu-extensions-group:hover .dcu-extension-default-icon,.dcu-extensions-toggle:focus-visible .dcu-extension-default-icon{opacity:0}.dcu-extensions-group:hover .dcu-extension-state-arrow,.dcu-extensions-toggle:focus-visible .dcu-extension-state-arrow{opacity:1}.dcu-extensions-toggle[aria-expanded=true] .dcu-extension-state-arrow{transform:rotate(90deg)}.dcu-extension-panel{display:grid;grid-template-rows:1fr;opacity:1;transition:grid-template-rows 220ms cubic-bezier(.16,1,.3,1),opacity 160ms ease-out}.dcu-extension-panel[data-open=false]{grid-template-rows:0fr;opacity:0;pointer-events:none}.dcu-extension-panel-inner{position:relative;min-height:0;overflow:hidden}.dcu-extension-items{position:relative;display:grid;gap:1px;margin:1px 0 4px 28px}.dcu-extension-items::before{content:"";position:absolute;left:-16px;top:0;bottom:4px;width:1px;background:var(--dcu-sidebar-border)}.dcu-extension-items button{grid-template-columns:20px minmax(0,1fr);min-height:32px;color:var(--dcu-sidebar-secondary);font-size:13px;font-weight:400}
 .dcu-workspaces{display:flex;min-height:0;flex:1;flex-direction:column;margin-top:2px;padding-top:8px;border-top:1px solid var(--dcu-sidebar-border)}.dcu-workspaces.dcu-workspaces-tabs{padding-top:0;border-top:0}.dcu-im-tabs{display:flex;margin:2px 8px 8px;padding:0}.dcu-im-tabs .dcu-im-segmented-tabs{width:100%;background:color-mix(in srgb,var(--dcu-sidebar-primary) 3%,transparent)!important;border-radius:8px!important;border:0.5px solid var(--dcu-sidebar-border)!important;box-sizing:border-box;padding:2px!important}.dcu-im-tabs .dcu-im-segmented-tabs>span{inset:2px auto 2px 2px!important;border-radius:6px!important;border:0.5px solid color-mix(in srgb,var(--dcu-sidebar-primary) 12%,transparent)!important;background:color-mix(in srgb,var(--dcu-sidebar-primary) 8%,transparent)!important;box-shadow:none!important}.dcu-im-tabs .dcu-im-segmented-tabs [role=tab]{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:5px!important;width:100%!important;height:26px!important;padding:0 6px!important;font-size:13px!important;line-height:18px!important;border-radius:6px!important;color:var(--dcu-sidebar-secondary);text-align:center!important}.dcu-im-tabs .dcu-im-segmented-tabs [role=tab]>*{display:inline-flex!important;align-items:center!important;justify-content:center!important}.dcu-im-tabs .dcu-im-segmented-tabs [role=tab]:hover{color:var(--dcu-sidebar-primary)}.dcu-im-tabs .dcu-im-segmented-tabs [role=tab][aria-selected=true]{color:var(--dcu-sidebar-primary)!important;font-weight:600}.dcu-native-workspaces{display:flex;min-height:0;flex:1}.dcu-native-workspaces>*{min-width:0;flex:1}.dcu-native-workspaces .ima-tabs,.dcu-native-workspaces [role=tablist]:not(.dcu-schedule-segmented-tabs){display:none!important}.dcu-schedule-browser{display:flex;min-height:0;flex:1;flex-direction:column}.dcu-native-workspaces .dcu-schedule-views{display:flex!important;flex:none;margin:2px 8px 8px;padding:0}.dcu-native-workspaces .dcu-schedule-views [role=tablist],.dcu-schedule-views .dcu-schedule-segmented-tabs{display:grid!important;width:100%;margin:0!important;padding:2px!important;background:color-mix(in srgb,var(--dcu-sidebar-primary) 3%,transparent)!important;border-radius:8px!important;border:0.5px solid var(--dcu-sidebar-border)!important;box-sizing:border-box}.dcu-schedule-views .dcu-schedule-segmented-tabs>span{inset:2px auto 2px 2px!important;border-radius:6px!important;border:0.5px solid color-mix(in srgb,var(--dcu-sidebar-primary) 12%,transparent)!important;background:color-mix(in srgb,var(--dcu-sidebar-primary) 8%,transparent)!important;box-shadow:none!important}.dcu-schedule-views .dcu-schedule-segmented-tabs [role=tab]{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:5px!important;width:100%!important;height:26px!important;padding:0 6px!important;font-size:13px!important;line-height:18px!important;border-radius:6px!important;color:var(--dcu-sidebar-secondary);font-weight:500;text-align:center!important}.dcu-schedule-views .dcu-schedule-segmented-tabs [role=tab]>*{display:inline-flex!important;align-items:center!important;justify-content:center!important}.dcu-schedule-views .dcu-schedule-segmented-tabs [role=tab]:hover{color:var(--dcu-sidebar-primary)}.dcu-schedule-views .dcu-schedule-segmented-tabs [role=tab][aria-selected=true]{color:var(--dcu-sidebar-primary)!important;font-weight:600}.dcu-schedule-pane{display:flex;min-height:0;flex:1}.dcu-schedule-pane>*{min-width:0;flex:1}.dcu-schedule-pane>[data-slot="sidebar.schedule"]{display:flex!important;width:100%;min-width:0;flex:1}.dcu-schedule-pane .dsh-st-rail{width:100%;min-width:0;padding:0;scrollbar-gutter:auto}.dcu-schedule-pane .dsh-st-overview{padding:2px 8px 14px;scrollbar-gutter:auto}.dcu-foot{display:grid;width:100%;gap:4px;padding:8px 6px 12px;border-top:1px solid var(--dcu-sidebar-border);transition:opacity 500ms cubic-bezier(.16,1,.3,1),transform 500ms cubic-bezier(.16,1,.3,1)}.dcu-root.dcu-collapsing>.dcu-foot{opacity:0;transform:translateX(-4px);pointer-events:none}.dcu-footer-actions:empty,.dcu-settings-seat:empty{display:none}.dcu-settings-seat>[data-dcu-settings-trigger]{width:100%;min-height:36px;padding-left:4px!important;color:var(--dcu-sidebar-navigation);font:14px/20px var(--dsw-font-family);font-weight:400}.dcu-compact{width:100%;align-items:flex-start;overflow:hidden;padding:calc((var(--dcu-header-height,34px) - 28px)/2) 0 8px}.dcu-compact-nav{display:flex;flex:1;min-height:0;flex-direction:column;align-items:center;gap:2px;overflow:auto;padding:6px 0}.dcu-compact .dcu-icon{width:36px;height:36px;flex:none}.dcu-compact .dcu-foot{width:36px;margin-top:auto;margin-left:10px;padding:8px 0;border-top:0}.dcu-compact .dcu-settings-seat{width:36px;overflow:hidden}.dcu-compact .dcu-settings-seat>[data-dcu-settings-trigger]{display:grid;place-items:center;width:36px;min-height:36px;padding:0!important;font-size:0!important;line-height:0}.dcu-compact .dcu-settings-seat>[data-dcu-settings-trigger] svg{width:16px;height:16px}.dcu-compact .dcu-footer-link{display:flex;justify-content:center;width:36px;padding:0;font-size:0}.dcu-compact .dcu-footer-link svg{width:16px;height:16px}
 .dcu-settings-seat [data-slot="settings.trigger"]{color:var(--dcu-sidebar-navigation)}
 .dcu-settings-seat [data-slot="settings.trigger"]>svg{color:var(--dcu-sidebar-icon)}
@@ -129,8 +110,7 @@ html[data-platform=darwin]:not([data-fullscreen]) .dcu-root.dcu-compact{padding-
 [data-dcu-codex-sidebar-initialized][data-dragging],[data-dcu-codex-sidebar-initialized][data-dragging] [data-side="sidebar"]{transition:none}
 @media (prefers-reduced-motion:reduce){[data-dcu-codex-sidebar-initialized],[data-dcu-codex-sidebar-initialized] [data-side="sidebar"],#root [data-dcu-codex-sidebar-initialized]:not([data-dragging]){transition:none}.dcu-root.dcu-collapsing .dcu-compact-shell{animation:none}}
 .dcu-native-workspaces{flex-direction:column}.dcu-native-workspaces>[data-mcp-connector-top-mount=true]{flex:none}.dcu-root .mcpConnectorLauncher,.dcu-root [data-mcp-connector-top-mount=true]{display:none!important}
-.dcu-dependency-notice{margin:0 10px 8px;border:1px solid var(--dcu-sidebar-border);border-radius:8px;padding:8px;color:var(--dcu-sidebar-secondary);font-size:12px;line-height:18px}
-.dcu-search-scrim{position:fixed;z-index:10020;inset:0;display:flex;justify-content:center;align-items:flex-start;padding:72px 20px;background:color-mix(in srgb,#000 60%,transparent);animation:dcu-search-scrim-in 140ms ease-out}.dcu-search-dialog{width:min(560px,100%);max-height:min(640px,calc(100vh - 120px));overflow:auto;border:1px solid var(--dcu-sidebar-border);border-radius:16px;padding:10px;background:#ffffff;box-shadow:0 16px 40px rgba(0,0,0,.24);animation:dcu-search-dialog-in 180ms cubic-bezier(.16,1,.3,1)}body[data-ds-dark-theme] .dcu-search-dialog{background:#232323;border-color:rgba(255,255,255,.08);box-shadow:0 16px 40px rgba(0,0,0,.45)}@keyframes dcu-search-scrim-in{from{opacity:0}to{opacity:1}}@keyframes dcu-search-dialog-in{from{opacity:0;transform:translateY(-6px) scale(.985)}to{opacity:1}}.dcu-search-input{margin-bottom:8px}.dcu-search-section{padding:6px 0}.dcu-search-title{padding:0 8px 4px;color:var(--dcu-sidebar-tertiary);font-size:12px;font-weight:600}.dcu-search-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;width:100%;min-height:34px;border:0;border-radius:8px;padding:6px 8px;background:transparent;color:var(--dcu-sidebar-primary);font:inherit;text-align:left;cursor:pointer}.dcu-search-row:hover,.dcu-search-row[data-active=true]{background:var(--dcu-sidebar-hover)}.dcu-search-main{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dcu-search-detail{max-width:160px;overflow:hidden;color:var(--dcu-sidebar-tertiary);font-size:12px;text-overflow:ellipsis;white-space:nowrap}.dcu-search-empty{padding:18px 8px;color:var(--dcu-sidebar-tertiary);font-size:13px}@media (prefers-reduced-motion:reduce){.dcu-expanded-shell,.dcu-root.dcu-compact .dcu-compact-shell,.dcu-foot,.dcu-search-scrim,.dcu-search-dialog,.dcu-extension-panel,.dcu-extension-leading svg{animation:none;transition:none}}
+.dcu-search-scrim{position:fixed;z-index:10020;inset:0;display:flex;justify-content:center;align-items:flex-start;padding:72px 20px;background:color-mix(in srgb,#000 60%,transparent);animation:dcu-search-scrim-in 140ms ease-out}.dcu-search-dialog{width:min(560px,100%);max-height:min(640px,calc(100vh - 120px));overflow:auto;border:1px solid var(--dcu-sidebar-border);border-radius:16px;padding:10px;background:#ffffff;box-shadow:0 16px 40px rgba(0,0,0,.24);animation:dcu-search-dialog-in 180ms cubic-bezier(.16,1,.3,1)}body[data-ds-dark-theme] .dcu-search-dialog{background:#232323;border-color:rgba(255,255,255,.08);box-shadow:0 16px 40px rgba(0,0,0,.45)}@keyframes dcu-search-scrim-in{from{opacity:0}to{opacity:1}}@keyframes dcu-search-dialog-in{from{opacity:0;transform:translateY(-6px) scale(.985)}to{opacity:1}}.dcu-search-input{margin-bottom:8px}.dcu-search-section{padding:6px 0}.dcu-search-title{padding:0 8px 4px;color:var(--dcu-sidebar-tertiary);font-size:12px;font-weight:600}.dcu-search-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;width:100%;min-height:34px;border:0;border-radius:8px;padding:6px 8px;background:transparent;color:var(--dcu-sidebar-primary);font:inherit;text-align:left;cursor:pointer}.dcu-search-row:hover,.dcu-search-row[data-active=true]{background:var(--dcu-sidebar-hover)}.dcu-search-main{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dcu-search-detail{max-width:160px;overflow:hidden;color:var(--dcu-sidebar-tertiary);font-size:12px;text-overflow:ellipsis;white-space:nowrap}.dcu-search-empty{padding:18px 8px;color:var(--dcu-sidebar-tertiary);font-size:13px}@media (prefers-reduced-motion:reduce){.dcu-expanded-shell,.dcu-root.dcu-compact .dcu-compact-shell,.dcu-foot,.dcu-search-scrim,.dcu-search-dialog{animation:none;transition:none}}
 [data-conversation-scroll]{--dsh-composer-card-max-width:calc(var(--dsh-chat-content-width) + 32px);--dsh-composer-side-clearance:24px;--dcu-composer-bg:var(--dsw-specific-input-major,#fff);--dcu-composer-shadow:0 0 0 1px #0000000a,0 2px 8px #0000000a,0 4px 80px 8px #00000006}
 body[data-ds-dark-theme] [data-conversation-scroll]{--dcu-composer-bg:var(--dsw-alias-bg-layer-2,#242424);--dcu-composer-shadow:inset 0 0 1px #fff3}
 [data-conversation-scroll] [data-composer-card]{padding-top:8px;gap:4px;border:0;border-radius:20px;background:var(--dcu-composer-bg);box-shadow:var(--dcu-composer-shadow)}
@@ -164,9 +144,6 @@ function MenuIcon({ children }: { children: ReactNode }) { return <span classNam
 function ScheduleIcon() {
   return <svg viewBox="0 0 16 16" width={16} height={16} fill="none" aria-hidden="true"><path fill="currentColor" d="M8 1.15A6.85 6.85 0 1 0 8 14.85 6.85 6.85 0 0 0 8 1.15Zm0 1.4a5.45 5.45 0 1 1 0 10.9 5.45 5.45 0 0 1 0-10.9Z" /><path fill="currentColor" d="M8.62 4.35H7.28v4.2l3.02 1.78.67-1.13-2.35-1.39V4.35Z" /></svg>
 }
-function ImAssistantIcon() {
-  return <svg viewBox="0 0 16 16" width={16} height={16} fill="none" aria-hidden="true"><path fill="currentColor" d="M2.15 2.9h11.7v8.2H6.42L2.15 13.85V2.9Zm1.4 1.4v6.62l1.78-1.12h7.12V4.3H3.55Z" /></svg>
-}
 
 type SearchEntry = SidebarSearchItem & {
   readonly group: 'sessions' | 'settings' | 'actions'
@@ -199,13 +176,13 @@ function SidebarSearchModal({
     openSettingsSection(settingsSeat.current, label)
   }, [settingsSeat])
   const selectExternalSection = useCallback((label: string | readonly string[]): void => {
-    openSettingsSection(settingsSeat.current, label, () => { selectSection(t('about.nav')) })
+    openSettingsSection(settingsSeat.current, label, () => { openSettingsRoot(settingsSeat.current) })
   }, [selectSection, settingsSeat, t])
   const openImSettings = useCallback((): void => {
     routeOptionalSettingsSection(
       imSettingsAvailable,
       () => { selectExternalSection([t('sidebar.imSettings'), 'IM助理']) },
-      () => { selectSection(t('about.nav')) },
+      () => { openSettingsRoot(settingsSeat.current) },
     )
   }, [imSettingsAvailable, selectExternalSection, selectSection, t])
   const openSettings = useCallback((): void => {
@@ -229,7 +206,6 @@ function SidebarSearchModal({
       { id: 'settings:connectors', group: 'settings', label: t('sidebar.connectors'), keywords: t('search.settings'), run: () => { onClose(); selectSection(t('sidebar.connectors')) } },
       { id: 'settings:schedule', group: 'settings', label: t('sidebar.schedule'), keywords: t('search.settings'), run: () => { onClose(); selectExternalSection(t('sidebar.schedule')) } },
       { id: 'settings:assistant', group: 'settings', label: t('sidebar.assistant'), keywords: t('search.settings'), run: () => { onClose(); openImSettings() } },
-      { id: 'settings:about', group: 'settings', label: t('about.nav'), keywords: t('search.settings'), run: () => { onClose(); selectSection(t('about.nav')) } },
     ]
     return [...sessionEntries, ...settingEntries, { id: 'action:new', group: 'actions', label: t('sidebar.newTask'), keywords: t('search.actions'), run: () => { onClose(); startSession() } }]
   }, [imSettingsAvailable, onClose, openImSettings, openPlugins, openSession, openSettings, selectExternalSection, selectSection, sessions.byId, sessions.ids, startSession, t, workspaces.archivedSessionIds, workspaces.items])
@@ -261,9 +237,7 @@ const SidebarSearch = forwardRef<SidebarSearchHandle, SidebarSearchProps>(functi
 })
 
 /** Codex 风格的 DSH 侧栏，只替换导航外观，项目浏览和设置仍由 DSH 官方组件提供。 */
-export function CodexSidebar({ workspaceShortcuts, navigationHistory, globalPanels, footerActions, selectPanel, usePanelInfo = useLegacyPanelInfo, collapsed, width, openSession, startSession, toggleSidebar, archiveSession, canDeleteSession, deleteSession, forkSession, moveSession, renameSession, openPath, companionSlots, renderSlot, t, useSessions, useSessionPendingInteraction, useSessionStatus, useWorkspaces, prefillNewConversation, newConversationDraft }: CodexSidebarProps) {
-  const panels = useSyncExternalStore(globalPanels?.subscribe ?? subscribeEmptyCompanionTabs, globalPanels?.getSnapshot ?? getEmptyPanels, globalPanels?.getSnapshot ?? getEmptyPanels)
-  const extensionPanels = [...panels].sort((left, right) => left.order - right.order)
+export function CodexSidebar({ workspaceShortcuts, navigationHistory, footerActions, usePanelInfo = useLegacyPanelInfo, collapsed, width, openSession, startSession, toggleSidebar, archiveSession, canDeleteSession, deleteSession, forkSession, moveSession, renameSession, openPath, companionSlots, renderSlot, t, useSessions, useSessionPendingInteraction, useSessionStatus, useWorkspaces, prefillNewConversation, newConversationDraft }: CodexSidebarProps) {
   const visibleFooterActions = useSyncExternalStore(footerActions?.subscribe ?? subscribeEmptyCompanionTabs, footerActions?.getSnapshot ?? getEmptyFooterActions, footerActions?.getSnapshot ?? getEmptyFooterActions)
   const activePanelId = usePanelInfo(info => info.activePanelId)
   const panelActive = activePanelId !== null && activePanelId !== ''
@@ -279,7 +253,6 @@ export function CodexSidebar({ workspaceShortcuts, navigationHistory, globalPane
   const toggleSidebarRef = useRef(toggleSidebar)
   toggleSidebarRef.current = toggleSidebar
   const expandSidebar = useCallback((): void => { toggleSidebarRef.current() }, [])
-  const [extensionsOpen, setExtensionsOpen] = useState(readExtensionsOpen)
   const [imTab, setImTab] = useState<'tasks' | 'channels' | 'schedule'>('tasks')
   const [startingSession, setStartingSession] = useState(false)
   const beginSession = useCallback(async (workspaceId?: WorkspaceId): Promise<void> => {
@@ -350,14 +323,7 @@ export function CodexSidebar({ workspaceShortcuts, navigationHistory, globalPane
     selectExternalSection([t('settings.pluginConfig'), t('sidebar.marketplace'), t('sidebar.builtinPlugins')])
   }
   const selectExternalSection = (label: string | readonly string[]): void => {
-    openSettingsSection(settingsSeat.current, label, () => { selectSection(t('about.nav')) })
-  }
-  const openImSettings = (): void => {
-    routeOptionalSettingsSection(
-      showChannels,
-      () => { selectExternalSection([t('sidebar.imSettings'), 'IM助理']) },
-      () => { selectSection(t('about.nav')) },
-    )
+    openSettingsSection(settingsSeat.current, label, () => { openSettingsRoot(settingsSeat.current) })
   }
   useEffect(() => {
     if (imTab === 'channels' && !showChannels) setImTab('tasks')
@@ -496,10 +462,6 @@ export function CodexSidebar({ workspaceShortcuts, navigationHistory, globalPane
     <header className="dcu-head" data-window-drag><button type="button" className="dcu-brand" aria-label={t('sidebar.newTask')} onClick={() => { beginSession() }}><BrandWordmark size={24} /></button><div className="dcu-head-actions"><button type="button" className="dcu-icon" aria-label={t('sidebar.collapse')} onClick={toggleSidebar}><IconPanelLeftOutlineMedium size={16} /></button><button type="button" className="dcu-icon" aria-label={t('sidebar.search')} onClick={openSearch}><IconSearchOutlineMedium size={16} /></button></div></header>
     <nav className="dcu-menu" aria-label={t('sidebar.mainMenu')}>
       <button type="button" onClick={() => { beginSession() }}><MenuIcon><IconNewChatOutlineMedium size={16} /></MenuIcon>{t('sidebar.newTask')}</button>
-      <div className="dcu-extensions-group">
-        <button type="button" className="dcu-extensions-toggle" aria-expanded={extensionsOpen} aria-controls="dcu-extension-items" onClick={() => { setExtensionsOpen(open => { const next = !open; writeExtensionsOpen(next); return next }) }}><MenuIcon><span className="dcu-extension-leading"><IconEnhanceOutlineMedium className="dcu-extension-default-icon" size={16} /><IconChevronRightOutlineMedium className="dcu-extension-state-arrow" /></span></MenuIcon>{t('sidebar.extensions')}</button>
-        <div id="dcu-extension-items" className="dcu-extension-panel" data-open={extensionsOpen} aria-hidden={!extensionsOpen}><div className="dcu-extension-panel-inner"><div className="dcu-extension-items"><button type="button" tabIndex={extensionsOpen ? 0 : -1} onClick={() => { selectExternalSection(t('sidebar.experts')) }}><MenuIcon><IconUserOutlineMedium size={16} /></MenuIcon>{t('sidebar.experts')}</button><button type="button" tabIndex={extensionsOpen ? 0 : -1} onClick={() => { selectExternalSection(t('sidebar.skills')) }}><MenuIcon><IconSkillOutlineMedium size={16} /></MenuIcon>{t('sidebar.skills')}</button><button type="button" tabIndex={extensionsOpen ? 0 : -1} onClick={() => { openPlugins() }}><MenuIcon><IconPersonalizationOutlineMedium size={16} /></MenuIcon>{t('sidebar.plugins')}</button><button type="button" tabIndex={extensionsOpen ? 0 : -1} onClick={() => { selectSection(t('sidebar.connectors')) }}><MenuIcon><IconLinkOutlineMedium size={16} /></MenuIcon>{t('sidebar.connectors')}</button><button type="button" tabIndex={extensionsOpen ? 0 : -1} onClick={() => { selectExternalSection(t('sidebar.schedule')) }}><MenuIcon><ScheduleIcon /></MenuIcon>{t('sidebar.schedule')}</button><button type="button" tabIndex={extensionsOpen ? 0 : -1} onClick={openImSettings}><MenuIcon><ImAssistantIcon /></MenuIcon>{t('sidebar.assistant')}</button>{extensionPanels.map(panel => <button key={panel.id} type="button" tabIndex={extensionsOpen ? 0 : -1} aria-current={activePanelId === panel.id ? 'page' : undefined} onClick={() => { selectPanel?.(panel.id) }}><MenuIcon>{renderSlot('sidebar.panellist', { size: 16, active: activePanelId === panel.id }, { only: panel.id })}</MenuIcon>{panel.label}</button>)}</div></div></div>
-      </div>
     </nav>
     <div className={showCompanionTabs ? "dcu-workspaces dcu-workspaces-tabs" : "dcu-workspaces"}>
       {showCompanionTabs && <div className="dcu-im-tabs">
@@ -515,12 +477,12 @@ export function CodexSidebar({ workspaceShortcuts, navigationHistory, globalPane
         ? <div className="dcu-native-workspaces"><ChannelBrowser openSession={openSession} archiveSession={archiveSession} deleteSession={deleteSession} canDeleteSession={canDeleteSession} forkSession={forkSession} moveSession={moveSession} renameSession={renameSession} useSessions={useSessions} useSessionPendingInteraction={useSessionPendingInteraction} useSessionStatus={useSessionStatus} useWorkspaces={useWorkspaces} panelActive={panelActive} t={t} /></div>
         : imTab === 'schedule' && showSchedule
           ? <div className="dcu-native-workspaces"><ScheduleBrowser openSession={openSession} archiveSession={archiveSession} deleteSession={deleteSession} canDeleteSession={canDeleteSession} forkSession={forkSession} moveSession={moveSession} renameSession={renameSession} useSessions={useSessions} useSessionPendingInteraction={useSessionPendingInteraction} useSessionStatus={useSessionStatus} useWorkspaces={useWorkspaces} panelActive={panelActive} t={t} overviewContent={scheduleOverviewSlot} openTaskSettings={(request) => {
-              openSettingsSection(settingsSeat.current, t('sidebar.schedule'), () => { clearAutomationTaskSettingsRequest(); selectSection(t('about.nav')) }, () => { requestAutomationTaskSettings(request) })
+              openSettingsSection(settingsSeat.current, t('sidebar.schedule'), () => { clearAutomationTaskSettingsRequest(); openSettingsRoot(settingsSeat.current) }, () => { requestAutomationTaskSettings(request) })
             }} /></div>
           : <div className="dcu-native-workspaces">{workspaceSlot}</div>}
     </div>
     </div>
-    <div className="dcu-compact-shell"><button type="button" className="dcu-icon" aria-label={t('sidebar.expand')} onClick={toggleSidebar}><IconPanelLeftOutlineMedium size={16} /></button><nav className="dcu-compact-nav" aria-label={t('sidebar.mainMenu')}><button type="button" className="dcu-icon" aria-label={t('sidebar.newTask')} onClick={() => { beginSession() }}><IconNewChatOutlineMedium size={16} /></button><button type="button" className="dcu-icon" aria-label={t('sidebar.search')} onClick={openSearch}><IconSearchOutlineMedium size={16} /></button><button type="button" className="dcu-icon" aria-label={t('sidebar.experts')} onClick={() => { selectExternalSection(t('sidebar.experts')) }}><IconUserOutlineMedium size={16} /></button><button type="button" className="dcu-icon" aria-label={t('sidebar.skills')} onClick={() => { selectExternalSection(t('sidebar.skills')) }}><IconSkillOutlineMedium size={16} /></button><button type="button" className="dcu-icon" aria-label={t('sidebar.plugins')} onClick={() => { openPlugins() }}><IconPersonalizationOutlineMedium size={16} /></button><button type="button" className="dcu-icon" aria-label={t('sidebar.connectors')} onClick={() => { selectSection(t('sidebar.connectors')) }}><IconLinkOutlineMedium size={16} /></button><button type="button" className="dcu-icon" aria-label={t('sidebar.schedule')} onClick={() => { selectExternalSection(t('sidebar.schedule')) }}><ScheduleIcon /></button><button type="button" className="dcu-icon" aria-label={t('sidebar.assistant')} onClick={openImSettings}><ImAssistantIcon /></button>{extensionPanels.map(panel => <button key={panel.id} type="button" className="dcu-icon" aria-label={panel.label} title={panel.label} onClick={() => { selectPanel?.(panel.id) }}>{renderSlot('sidebar.panellist', { size: 16, active: activePanelId === panel.id }, { only: panel.id })}</button>)}</nav></div>
+    <div className="dcu-compact-shell"><button type="button" className="dcu-icon" aria-label={t('sidebar.expand')} onClick={toggleSidebar}><IconPanelLeftOutlineMedium size={16} /></button><nav className="dcu-compact-nav" aria-label={t('sidebar.mainMenu')}><button type="button" className="dcu-icon" aria-label={t('sidebar.newTask')} onClick={() => { beginSession() }}><IconNewChatOutlineMedium size={16} /></button><button type="button" className="dcu-icon" aria-label={t('sidebar.search')} onClick={openSearch}><IconSearchOutlineMedium size={16} /></button></nav></div>
     <footer className="dcu-foot"><div className="dcu-footer-actions">{footerActions === undefined ? renderSlot('sidebar.footer.action', { wide: !visualCompact }) : visibleFooterActions.map(action => <Fragment key={action.id}>{renderSlot('sidebar.footer.action', { wide: !visualCompact }, { only: action.id })}</Fragment>)}</div><div ref={settingsSeat} className="dcu-settings-seat">{renderSlot('sidebar.settings', { wide: !visualCompact })}</div></footer>
     {/* 逐条 only:id 各生成一个 data-slot 锚点；插件可能给锚点写 width:100%，footer-actions 必须保持竖排。 */}
     <SidebarSearch ref={search} imSettingsAvailable={showChannels} openPlugins={openPlugins} settingsSeat={settingsSeat} openSession={openSession} startSession={beginSession} t={t} useSessions={useSessions} useWorkspaces={useWorkspaces} />

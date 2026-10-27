@@ -5,8 +5,8 @@ export type SettingsGroup = 'personal' | 'integrations' | 'records'
 /** 已知分区的显示顺序由 UI 插件固定。各插件自带 order 只用于同组未知项之间。 */
 const SETTINGS_NAV: Record<SettingsGroup, readonly string[]> = {
   personal: ['account', 'general'],
-  integrations: ['models', 'agent-presets', 'plugins', 'plugin-config', 'agency-agents', 'skills-manager', 'codex-pet', 'connectors', 'scheduled-tasks', 'im-assistant'],
-  records: ['archived-sessions', 'about'],
+  integrations: ['models', 'agent-presets', 'plugins', 'plugin-config', 'agency-agents', 'skills-manager', 'connectors', 'scheduled-tasks', 'im-assistant'],
+  records: ['archived-sessions'],
 }
 
 const GROUP_INDEX: Record<SettingsGroup, number> = { personal: 0, integrations: 1, records: 2 }
@@ -15,7 +15,7 @@ export function settingsGroup(id: string): SettingsGroup {
   for (const group of ['personal', 'integrations', 'records'] as const) {
     if (SETTINGS_NAV[group].includes(id)) return group
   }
-  if (/archive|about/.test(id)) return 'records'
+  if (/archive/.test(id)) return 'records'
   if (/^(general|appearance|theme|language|shortcuts|voice|account)$/.test(id)) return 'personal'
   return 'integrations'
 }

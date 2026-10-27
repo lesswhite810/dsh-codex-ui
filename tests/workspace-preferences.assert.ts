@@ -81,14 +81,14 @@ type Route = { path: string; handler: (req: ReturnType<typeof request> & { metho
 type ResponseRecorder = { status?: number; headers?: Record<string, string>; body?: string; writeHead: (status: number, headers?: Record<string, string>) => void; end: (body?: string) => void }
 
 let preferencesRoute: Route | undefined
-let dependenciesRoute: Route | undefined
+let capabilitiesRoute: Route | undefined
 let explorerRoute: Route | undefined
 let sessionMoveRoute: Route | undefined
 let disposeEffect: (() => void) | undefined
 const webServer = {
   register: (route: Route) => {
     if (route.path === '/api/dsh-codex-ui/preferences') preferencesRoute = route
-    if (route.path === '/api/dsh-codex-ui/dependencies') dependenciesRoute = route
+    if (route.path === '/api/dsh-codex-ui/capabilities') capabilitiesRoute = route
     if (route.path === '/api/dsh-codex-ui/open-in-explorer') explorerRoute = route
     if (route.path === '/api/dsh-codex-ui/session-move') sessionMoveRoute = route
     return () => {}
@@ -127,7 +127,7 @@ process.env.DSH_PROFILE_DIR = endpointDirectory
 try {
   apply(context as never)
   assert.ok(preferencesRoute)
-  assert.ok(dependenciesRoute)
+  assert.ok(capabilitiesRoute)
   assert.ok(sessionMoveRoute)
 
   const invoke = async (method: string, chunks: string[] = [], headers: Record<string, string> = {}) => {
@@ -177,27 +177,28 @@ try {
   assert.equal((await invoke('PUT', [], { 'content-length': String(33 * 1024) })).status, 413)
   assert.equal((await invoke('POST')).status, 405)
 
-  const invokeDependencies = async (method: string, url: string, headers: Record<string, string> = {}) => {
+  const invokeCapabilities = async (method: string, url: string, headers: Record<string, string> = {}) => {
     const response: ResponseRecorder = {
       writeHead: (status, responseHeaders) => { response.status = status; response.headers = responseHeaders },
       end: body => { response.body = body },
     }
-    await dependenciesRoute?.handler({ ...request([], headers), method, url }, response)
+    await capabilitiesRoute?.handler({ ...request([], headers), method, url }, response)
     return response
   }
   authenticationRejection = 403
-  const crossSiteDependency = await invokeDependencies('POST', `${dependenciesRoute?.path}?dependency=ui`, { 'sec-fetch-site': 'cross-site' })
-  assert.equal(crossSiteDependency.status, 403, '依赖安装路由必须拒绝跨站 POST')
-  assert.equal(JSON.parse(crossSiteDependency.body ?? '{}').error, '已拒绝不可信或跨站请求。')
+  const crossSiteCapability = await invokeCapabilities('POST', capabilitiesRoute?.path ?? '', { 'sec-fetch-site': 'cross-site' })
+  assert.equal(crossSiteCapability.status, 403, '能力探测路由必须拒绝跨站请求')
+  assert.equal(JSON.parse(crossSiteCapability.body ?? '{}').error, '已拒绝不可信或跨站请求。')
   authenticationRejection = undefined
+  assert.equal((await invokeCapabilities('POST', capabilitiesRoute?.path ?? '')).status, 405, '能力探测只接受 GET')
 
   services.desktopProfiles = {
     get current(): never { throw new Error('无法读取 D:\\Users\\demo\\secret-profile') },
   }
-  const dependencyFailure = await invokeDependencies('GET', dependenciesRoute?.path ?? '')
-  assert.equal(dependencyFailure.status, 503)
-  assert.equal(JSON.parse(dependencyFailure.body ?? '{}').error, '依赖管理暂不可用，请查看服务端日志。', '依赖路由不得返回本地路径')
-  assert.doesNotMatch(dependencyFailure.body ?? '', /secret-profile|D:\\\\Users/, '依赖路由响应必须脱敏')
+  const capabilityFailure = await invokeCapabilities('GET', capabilitiesRoute?.path ?? '')
+  assert.equal(capabilityFailure.status, 503)
+  assert.equal(JSON.parse(capabilityFailure.body ?? '{}').error, '运行时能力探测暂不可用。')
+  assert.doesNotMatch(capabilityFailure.body ?? '', /secret-profile|D:\\\\Users/, '能力探测响应必须脱敏')
   delete services.desktopProfiles
 
   const explorerResponse: ResponseRecorder = {

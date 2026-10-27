@@ -35,7 +35,6 @@
 - **管理日常任务**：在项目或会话菜单中重命名、归档、派生会话，或打开项目目录。
 - **回看长对话**：点击轮次导航，直接跳到对应提问。
 - **复用之前的输入**：输入框为空时，按上下方向键找回当前工作区中已提交的文本。
-- **按需扩展功能**：在「设置 → 关于」查看配套插件，安装或更新需要的功能。
 
 ## 界面预览
 
@@ -54,10 +53,6 @@
 会话菜单：重命名、置顶、未读、归档、派生、复制和删除。
 
 ![会话菜单](assets/screenshots/session-menu.png)
-
-「设置 → 关于」列出配套插件及其安装状态。
-
-![关于页与配套插件](assets/screenshots/settings-about.png)
 
 ## 前置条件
 
@@ -81,7 +76,6 @@
 | [Simplify](https://github.com/MichengAI/dsh-simplify) | 用 `/simplify` 整理 Git 改动范围内的代码 |
 | [PUA](https://github.com/MichengAI/dsh-pua) | 引导 Agent 在失败时换方法、查原因，并在完成前验证结果 |
 | [Code Review](https://github.com/MichengAI/dsh-code-review) | 用 `/review` 发起独立 Agent 代码审查，在当前会话接收报告 |
-| [Codex Pet](https://github.com/MichengAI/dsh-codex-pet) | 通过桌面宠物查看会话提醒、处理工具审批和问题回答 |
 
 ## 安装
 
@@ -120,7 +114,6 @@ dsh --profile web --dump-config
 | 复用输入 | 输入框为空时按上下方向键，召回当前工作区中之前提交的文本。 |
 | 跳转轮次 | 使用当前会话左侧的轮次刻度跳转到对应提问。 |
 | 查看连接器 | 打开「设置 → 连接器」。不会展示地址、命令或凭证。 |
-| 查看配套插件 | 打开「设置 → 关于」，安装或更新各个配套插件。 |
 
 ## 常见问题
 

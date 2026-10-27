@@ -9,10 +9,6 @@ export type WorkspaceConnectService = {
   connectWorkspace: (workspaceId: WorkspaceId) => Promise<SessionId>
 }
 
-export type WorkspaceRefreshService = {
-  refresh: () => Promise<void>
-}
-
 export function hasStartSession(value: unknown): value is WorkspaceStartService {
   return value !== null && typeof value === 'object' && 'startSession' in value && typeof value.startSession === 'function'
 }
@@ -27,10 +23,6 @@ export type WorkspaceOpenService = {
 
 export function hasOpenWorkspace(value: unknown): value is WorkspaceOpenService {
   return value !== null && typeof value === 'object' && 'openWorkspace' in value && typeof value.openWorkspace === 'function'
-}
-
-export function hasWorkspaceRefresh(value: unknown): value is WorkspaceRefreshService {
-  return value !== null && typeof value === 'object' && 'refresh' in value && typeof value.refresh === 'function'
 }
 
 /** 与 DSH 官方最近工作区策略一致；时间相同时保留 Host 工作区顺序。 */

@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react'
 import { OFFICIAL_PLUGINS_PANEL_ID } from './settings-navigation.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
@@ -40,15 +39,3 @@ export function createGlobalPanelSource(slots: PanelSlots, locale: Pick<GlobalPa
   }
 }
 
-/** 展开和紧凑侧栏只列出宿主注册的全局面板，不额外插入返回会话的任务入口。 */
-export function GlobalPanelButtons({ panels, activeId, wide, selectPanel, renderIcon }: {
-  panels: readonly GlobalPanel[]; activeId: string | null; wide: boolean
-  selectPanel: (id: string | null) => void; renderIcon: (id: string, active: boolean) => ReactNode
-}) {
-  if (panels.length === 0) return null
-  return <>{panels.map(panel => <button key={panel.id} type="button"
-    className={wide ? 'dcu-global-panel' : 'dcu-icon dcu-global-panel'} aria-label={panel.label} title={wide ? undefined : panel.label}
-    aria-current={activeId === panel.id ? 'page' : undefined} onClick={() => selectPanel(panel.id)}>
-    <span className="dcu-menu-icon" aria-hidden="true">{renderIcon(panel.id, activeId === panel.id)}</span>{wide && panel.label}
-  </button>)}</>
-}

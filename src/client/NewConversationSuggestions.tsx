@@ -7,10 +7,10 @@ import type { PrefillResult, DraftPresenceSource } from './new-conversation-draf
 export type { PrefillResult } from './new-conversation-draft.ts'
 
 const categories = [
-  { id: 'explore', label: 'home.explore', tasks: [{ label: 'home.explore.task1', prompt: 'home.explore.prompt1' }, { label: 'home.explore.task2', prompt: 'home.explore.prompt2' }], Icon: Telescope, color: '#27aaff' },
-  { id: 'build', label: 'home.build', tasks: [{ label: 'home.build.task1', prompt: 'home.build.prompt1' }, { label: 'home.build.task2', prompt: 'home.build.prompt2' }], Icon: Hammer, color: '#a478e8' },
-  { id: 'review', label: 'home.review', tasks: [{ label: 'home.review.task1', prompt: 'home.review.prompt1' }, { label: 'home.review.task2', prompt: 'home.review.prompt2' }], Icon: ScanLine, color: '#44bd83' },
-  { id: 'fix', label: 'home.fix', tasks: [{ label: 'home.fix.task1', prompt: 'home.fix.prompt1' }, { label: 'home.fix.task2', prompt: 'home.fix.prompt2' }], Icon: Bug, color: '#f48235' },
+  { id: 'explore', label: 'home.explore', tasks: [{ label: 'home.explore.task1', prompt: 'home.explore.prompt1' }, { label: 'home.explore.task2', prompt: 'home.explore.prompt2' }], Icon: Telescope, color: 'var(--dsw-alias-state-business-primary)' },
+  { id: 'build', label: 'home.build', tasks: [{ label: 'home.build.task1', prompt: 'home.build.prompt1' }, { label: 'home.build.task2', prompt: 'home.build.prompt2' }], Icon: Hammer, color: 'var(--dsw-alias-state-business-primary)' },
+  { id: 'review', label: 'home.review', tasks: [{ label: 'home.review.task1', prompt: 'home.review.prompt1' }, { label: 'home.review.task2', prompt: 'home.review.prompt2' }], Icon: ScanLine, color: 'var(--dsw-alias-state-success-primary)' },
+  { id: 'fix', label: 'home.fix', tasks: [{ label: 'home.fix.task1', prompt: 'home.fix.prompt1' }, { label: 'home.fix.task2', prompt: 'home.fix.prompt2' }], Icon: Bug, color: 'var(--dsw-alias-state-warn-primary)' },
 ] as const
 const hints = { workspace: 'home.workspace', draft: 'home.draft', busy: 'home.busy' } as const
 type Category = typeof categories[number]['id']

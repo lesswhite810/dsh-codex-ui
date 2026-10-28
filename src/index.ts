@@ -7,7 +7,7 @@ import { hostServices } from './host-services.ts'
 import { ForegroundExplorer } from './native-explorer.ts'
 import { moveSessionToWorkspace, SessionMoveError } from './session-migration.ts'
 import { registerOnboardingSettings } from './onboarding-settings.ts'
-import { parsePinnedWorkspaceIds, parseStoredWorkspaceGroups, readWorkspacePreferences, WORKSPACE_PREFERENCES_VERSION, writeWorkspacePreferences } from './workspace-preferences.ts'
+import { parsePinnedWorkspaceIds, readWorkspacePreferences, WORKSPACE_PREFERENCES_VERSION, writeWorkspacePreferences } from './workspace-preferences.ts'
 
 const connectorsEndpoint = CODEX_UI_API_ENDPOINTS.connectors
 const capabilitiesEndpoint = CODEX_UI_API_ENDPOINTS.capabilities
@@ -200,24 +200,14 @@ export function apply(ctx: Context): void {
             const body = JSON.parse(await readRequestBody(request)) as unknown
             const record = body !== null && typeof body === 'object' ? body as Record<string, unknown> : undefined
             const pinnedWorkspaceIds = record === undefined ? undefined : parsePinnedWorkspaceIds(record.pinnedWorkspaceIds)
-            const existing = await readWorkspacePreferences()
-            const workspaceGroups = record === undefined
-              ? undefined
-              : 'workspaceGroups' in record
-                ? parseStoredWorkspaceGroups(record.workspaceGroups)
-                : existing.workspaceGroups
-            // 仅保留同一 ID 的既有名称冲突；新增或改名不能绕过固定大小写判重。
-            const introducesTitleConflict = workspaceGroups?.some(group =>
-              !existing.workspaceGroups.some(previous => previous.id === group.id && previous.title === group.title)
-              && workspaceGroups.some(other => other.id !== group.id && other.title.toLowerCase() === group.title.toLowerCase())) === true
-            if (pinnedWorkspaceIds === undefined || workspaceGroups === undefined || introducesTitleConflict) {
+            if (pinnedWorkspaceIds === undefined) {
               response.writeHead(400, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
-              response.end(JSON.stringify({ error: '工作区偏好格式无效。' }))
+              response.end(JSON.stringify({ error: '置顶偏好格式无效。' }))
               return
             }
-            await writeWorkspacePreferences(pinnedWorkspaceIds, workspaceGroups)
+            await writeWorkspacePreferences(pinnedWorkspaceIds)
             response.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
-            response.end(JSON.stringify({ version: WORKSPACE_PREFERENCES_VERSION, pinnedWorkspaceIds, workspaceGroups, exists: true }))
+            response.end(JSON.stringify({ version: WORKSPACE_PREFERENCES_VERSION, pinnedWorkspaceIds, exists: true }))
             return
           }
           response.writeHead(405, { allow: 'GET, HEAD, PUT' })

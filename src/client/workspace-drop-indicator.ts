@@ -1,6 +1,6 @@
 // 排序仍由各行维护落点；绘制统一使用可见行的几何边界，不依赖外层留白。
-const ROWS = '.dcu-wb-section-head,.dcu-wb-collection-head,.dcu-wb-project-head,.dcu-wb-session,.dcu-wb-nochat,.dcu-wb-empty'
-const TARGETS = '.dcu-wb-drop,.dcu-wb-group-order-drop'
+const ROWS = '.dcu-wb-section-head,.dcu-wb-project-head,.dcu-wb-session,.dcu-wb-nochat,.dcu-wb-empty'
+const TARGETS = '.dcu-wb-drop'
 
 export type DropIndicatorRect = { top: number; left: number; width: number }
 

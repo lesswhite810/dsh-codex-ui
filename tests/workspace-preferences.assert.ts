@@ -3,13 +3,11 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { apply, RequestBodyTooLargeError, readRequestBody } from '../src/index.ts'
-import { readHostWorkspacePreferences, writeHostWorkspacePreferences, readWorkspaceGroupsCache, saveWorkspaceGroupsCache, WORKSPACE_GROUPS_STORAGE_KEY } from '../src/client/pinned-workspaces.ts'
-import { createWorkspaceGroup, renameWorkspaceGroup } from '../src/workspace-groups.ts'
+import { readHostWorkspacePreferences, writeHostWorkspacePreferences } from '../src/client/pinned-workspaces.ts'
 import {
   MAX_PINNED_WORKSPACE_IDS,
   MAX_WORKSPACE_ID_LENGTH,
   parsePinnedWorkspaceIds,
-  parseWorkspaceGroups,
   readWorkspacePreferences,
   WORKSPACE_PREFERENCES_FILE,
   writeWorkspacePreferences,
@@ -17,47 +15,42 @@ import {
 
 const directory = await mkdtemp(join(tmpdir(), 'dcu-workspace-preferences-'))
 const path = join(directory, WORKSPACE_PREFERENCES_FILE)
-const legacyCaseGroups = [{ id: 'upper', title: 'I', workspaceIds: ['one'] }, { id: 'lower', title: 'i', workspaceIds: ['two'] }]
+const legacyGroupField = ['workspace', 'Groups'].join('')
 
 try {
-  assert.deepEqual(await readWorkspacePreferences(path), { version: 2, pinnedWorkspaceIds: [], workspaceGroups: [], exists: false })
+  assert.deepEqual(await readWorkspacePreferences(path), { version: 2, pinnedWorkspaceIds: [], exists: false })
   assert.deepEqual(parsePinnedWorkspaceIds(['a', 'a', 'b']), ['a', 'b'])
   assert.equal(parsePinnedWorkspaceIds(Array.from({ length: MAX_PINNED_WORKSPACE_IDS + 1 }, (_, index) => String(index))), undefined)
   assert.equal(parsePinnedWorkspaceIds(['x'.repeat(MAX_WORKSPACE_ID_LENGTH + 1)]), undefined)
-  assert.deepEqual(parseWorkspaceGroups([{ id: 'knowledge', title: '数据与知识管理', workspaceIds: ['a'] }]), [{ id: 'knowledge', title: '数据与知识管理', workspaceIds: ['a'] }])
-  assert.equal(parseWorkspaceGroups([{ id: 'knowledge', title: '数据与知识管理', workspaceIds: ['a'] }, { id: 'duplicate', title: '重复', workspaceIds: ['a'] }]), undefined)
 
-  await writeWorkspacePreferences(['a', 'a', 'b'], [{ id: 'knowledge', title: '数据与知识管理', workspaceIds: ['a'] }], path)
-  assert.deepEqual(await readWorkspacePreferences(path), { version: 2, pinnedWorkspaceIds: ['a', 'b'], workspaceGroups: [{ id: 'knowledge', title: '数据与知识管理', workspaceIds: ['a'] }], exists: true })
+  await writeWorkspacePreferences(['a', 'a', 'b'], path)
+  assert.deepEqual(await readWorkspacePreferences(path), { version: 2, pinnedWorkspaceIds: ['a', 'b'], exists: true })
 
   await Promise.all([
-    writeWorkspacePreferences(['first'], [], path),
-    writeWorkspacePreferences(['second'], [], path),
+    writeWorkspacePreferences(['first'], path),
+    writeWorkspacePreferences(['second'], path),
   ])
-  assert.deepEqual(JSON.parse(await readFile(path, 'utf8')), { version: 2, pinnedWorkspaceIds: ['second'], workspaceGroups: [] })
+  assert.deepEqual(JSON.parse(await readFile(path, 'utf8')), { version: 2, pinnedWorkspaceIds: ['second'] })
 
   await writeFile(path, JSON.stringify({ version: 1, pinnedWorkspaceIds: ['legacy'] }), 'utf8')
-  assert.deepEqual(await readWorkspacePreferences(path), { version: 2, pinnedWorkspaceIds: ['legacy'], workspaceGroups: [], exists: true })
+  assert.deepEqual(await readWorkspacePreferences(path), { version: 2, pinnedWorkspaceIds: ['legacy'], exists: true })
 
-  // 旧 locale 下合法的大小写冲突组必须保留 ID、标题、成员，不能因规则升级清空。
-  await writeFile(path, JSON.stringify({ version: 2, pinnedWorkspaceIds: [], workspaceGroups: legacyCaseGroups }), 'utf8')
-  assert.deepEqual((await readWorkspacePreferences(path)).workspaceGroups, legacyCaseGroups)
-  await writeWorkspacePreferences([], legacyCaseGroups, path)
-  assert.deepEqual((await readWorkspacePreferences(path)).workspaceGroups, legacyCaseGroups)
-  const cacheValues = new Map([[WORKSPACE_GROUPS_STORAGE_KEY, JSON.stringify({ version: 1, workspaceGroups: legacyCaseGroups, pendingHostSync: false })]])
-  const cacheStorage = { getItem: (key: string) => cacheValues.get(key) ?? null, setItem: (key: string, value: string) => { cacheValues.set(key, value) } } as Storage
-  assert.deepEqual(readWorkspaceGroupsCache(cacheStorage).workspaceGroups, legacyCaseGroups)
-  saveWorkspaceGroupsCache(cacheStorage, legacyCaseGroups, true)
-  assert.deepEqual(readWorkspaceGroupsCache(cacheStorage), { workspaceGroups: legacyCaseGroups, pendingHostSync: true })
-  const hostPayload = { exists: true, pinnedWorkspaceIds: [], workspaceGroups: legacyCaseGroups }
-  assert.deepEqual((await readHostWorkspacePreferences(async () => new Response(JSON.stringify(hostPayload)))).workspaceGroups, legacyCaseGroups)
-  await writeHostWorkspacePreferences([], legacyCaseGroups, async (_input, init) => {
-    assert.deepEqual(JSON.parse(String(init?.body)).workspaceGroups, legacyCaseGroups)
+  // 旧版磁盘文件残留的分组字段必须在读取时忽略，且下次保存后被彻底替换。
+  await writeFile(path, JSON.stringify({ version: 2, pinnedWorkspaceIds: ['keep'], [legacyGroupField]: [{ id: 'stale', title: '旧分组', workspaceIds: ['keep'] }] }), 'utf8')
+  assert.deepEqual(await readWorkspacePreferences(path), { version: 2, pinnedWorkspaceIds: ['keep'], exists: true })
+  await writeWorkspacePreferences(['keep'], path)
+  assert.deepEqual(JSON.parse(await readFile(path, 'utf8')), { version: 2, pinnedWorkspaceIds: ['keep'] })
+
+  assert.deepEqual(
+    await readHostWorkspacePreferences(async () => new Response(JSON.stringify({ exists: true, pinnedWorkspaceIds: ['a', 'a', 'b'] }))),
+    { exists: true, pinnedWorkspaceIds: ['a', 'b'] },
+  )
+  await writeHostWorkspacePreferences(['a', 'a', 'b'], async (input, init) => {
+    assert.equal(input, '/api/dsh-codex-ui/preferences')
+    assert.equal(init?.method, 'PUT')
+    assert.deepEqual(JSON.parse(String(init?.body)), { pinnedWorkspaceIds: ['a', 'b'] })
     return new Response('{}')
   })
-  assert.deepEqual(createWorkspaceGroup(legacyCaseGroups, { id: 'new', title: 'Other' }).slice(0, 2), legacyCaseGroups)
-  assert.throws(() => createWorkspaceGroup(legacyCaseGroups, { id: 'new', title: 'I' }))
-  assert.deepEqual(renameWorkspaceGroup(legacyCaseGroups, 'upper', 'Unique'), [{ ...legacyCaseGroups[0], title: 'Unique' }, legacyCaseGroups[1]])
 
   await writeFile(path, '{broken', 'utf8')
   await assert.rejects(readWorkspacePreferences(path), SyntaxError)
@@ -141,35 +134,23 @@ try {
 
   const missing = await invoke('GET')
   assert.equal(missing.status, 200)
-  assert.deepEqual(JSON.parse(missing.body ?? ''), { version: 2, pinnedWorkspaceIds: [], workspaceGroups: [], exists: false })
+  assert.deepEqual(JSON.parse(missing.body ?? ''), { version: 2, pinnedWorkspaceIds: [], exists: false })
 
   const saved = await invoke('PUT', [JSON.stringify({ pinnedWorkspaceIds: ['one', 'two'] })], { 'sec-fetch-site': 'same-origin' })
   assert.equal(saved.status, 200)
+  assert.deepEqual(JSON.parse(saved.body ?? ''), { version: 2, pinnedWorkspaceIds: ['one', 'two'], exists: true })
   assert.deepEqual((await readWorkspacePreferences(join(endpointDirectory, WORKSPACE_PREFERENCES_FILE))).pinnedWorkspaceIds, ['one', 'two'])
 
-  const savedGroups = await invoke('PUT', [JSON.stringify({ pinnedWorkspaceIds: ['one'], workspaceGroups: [{ id: 'knowledge', title: '数据与知识管理', workspaceIds: ['one'] }] })], { 'sec-fetch-site': 'same-origin' })
-  assert.equal(savedGroups.status, 200)
-  assert.deepEqual(JSON.parse(savedGroups.body ?? '').workspaceGroups, [{ id: 'knowledge', title: '数据与知识管理', workspaceIds: ['one'] }])
+  const savedWithLegacyField = await invoke('PUT', [JSON.stringify({ pinnedWorkspaceIds: ['two'], [legacyGroupField]: [{ id: 'stale', title: '旧分组', workspaceIds: [] }] })], { 'sec-fetch-site': 'same-origin' })
+  assert.equal(savedWithLegacyField.status, 200, '旧客户端残留的分组字段必须被忽略')
+  assert.deepEqual(JSON.parse(savedWithLegacyField.body ?? ''), { version: 2, pinnedWorkspaceIds: ['two'], exists: true })
 
   await invoke('PUT', [JSON.stringify({ pinnedWorkspaceIds: ['two'] })], { 'sec-fetch-site': 'same-origin' })
-  assert.deepEqual((await readWorkspacePreferences(join(endpointDirectory, WORKSPACE_PREFERENCES_FILE))).workspaceGroups, [{ id: 'knowledge', title: '数据与知识管理', workspaceIds: ['one'] }], '旧客户端更新置顶时必须保留服务端已有分组')
+  assert.deepEqual(JSON.parse((await invoke('GET')).body ?? '{}'), { version: 2, pinnedWorkspaceIds: ['two'], exists: true })
 
-  assert.equal((await invoke('PUT', [JSON.stringify({ pinnedWorkspaceIds: [], workspaceGroups: legacyCaseGroups })])).status, 400, 'API must reject newly introduced case-insensitive duplicates')
-
-  await writeFile(join(endpointDirectory, WORKSPACE_PREFERENCES_FILE), JSON.stringify({ version: 2, pinnedWorkspaceIds: [], workspaceGroups: legacyCaseGroups }), 'utf8')
-  const legacySaved = await invoke('PUT', [JSON.stringify({ pinnedWorkspaceIds: ['one'], workspaceGroups: legacyCaseGroups })])
-  assert.equal(legacySaved.status, 200)
-  assert.deepEqual(JSON.parse((await invoke('GET')).body ?? '{}').workspaceGroups, legacyCaseGroups)
-  const newConflict = [...legacyCaseGroups, { id: 'another', title: ' I ', workspaceIds: [] }]
-  assert.equal((await invoke('PUT', [JSON.stringify({ pinnedWorkspaceIds: [], workspaceGroups: newConflict })])).status, 400)
-  const renamedConflict = legacyCaseGroups.map(group => group.id === 'upper' ? { ...group, title: 'i' } : group)
-  assert.equal((await invoke('PUT', [JSON.stringify({ pinnedWorkspaceIds: [], workspaceGroups: renamedConflict })])).status, 400)
-
-  const distinctGroups = [{ id: 'alpha', title: 'Alpha', workspaceIds: [] }, { id: 'other', title: 'Other', workspaceIds: [] }]
-  assert.equal((await invoke('PUT', [JSON.stringify({ pinnedWorkspaceIds: [], workspaceGroups: distinctGroups })])).status, 200)
-  const caseOnlyConflict = distinctGroups.map(group => group.id === 'other' ? { ...group, title: 'ALPHA' } : group)
-  assert.equal((await invoke('PUT', [JSON.stringify({ pinnedWorkspaceIds: [], workspaceGroups: caseOnlyConflict })])).status, 400, 'changed IDs/titles cannot acquire legacy conflict exemptions')
-  assert.deepEqual(JSON.parse((await invoke('GET')).body ?? '{}').workspaceGroups, distinctGroups)
+  assert.equal((await invoke('PUT', [JSON.stringify({})])).status, 400, '缺少置顶列表时必须拒绝')
+  assert.equal((await invoke('PUT', [JSON.stringify({ pinnedWorkspaceIds: [1] })])).status, 400, '非字符串置顶标识必须拒绝')
+  assert.equal((await invoke('PUT', [JSON.stringify({ pinnedWorkspaceIds: ['  '] })])).status, 400, '空白置顶标识必须拒绝')
 
   authenticationRejection = 403
   assert.equal((await invoke('PUT', ['{}'], { 'sec-fetch-site': 'cross-site' })).status, 403)

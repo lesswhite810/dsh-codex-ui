@@ -2,17 +2,15 @@ import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
-import { MAX_WORKSPACE_ID_LENGTH, parseStoredWorkspaceGroups, type WorkspaceGroup } from './workspace-groups.ts'
 
 export const WORKSPACE_PREFERENCES_FILE = '.dsh-codex-ui-preferences.json'
 export const WORKSPACE_PREFERENCES_VERSION = 2
 export const MAX_PINNED_WORKSPACE_IDS = 1_000
-export { MAX_WORKSPACE_ID_LENGTH, parseWorkspaceGroups, parseStoredWorkspaceGroups, type WorkspaceGroup } from './workspace-groups.ts'
+export const MAX_WORKSPACE_ID_LENGTH = 256
 
 export type WorkspacePreferences = {
   version: typeof WORKSPACE_PREFERENCES_VERSION
   pinnedWorkspaceIds: string[]
-  workspaceGroups: WorkspaceGroup[]
 }
 
 export type StoredWorkspacePreferences = WorkspacePreferences & { exists: boolean }
@@ -29,15 +27,14 @@ export function parsePinnedWorkspaceIds(value: unknown): string[] | undefined {
   return [...new Set(value)]
 }
 
+/** 版本 1 只有置顶列表；版本 2 文件可能残留已废弃的分组字段，读取时忽略未知字段。 */
 function parseWorkspacePreferences(value: unknown): WorkspacePreferences | undefined {
   if (value === null || typeof value !== 'object') return undefined
   const record = value as Record<string, unknown>
   const pinnedWorkspaceIds = parsePinnedWorkspaceIds(record.pinnedWorkspaceIds)
   if (pinnedWorkspaceIds === undefined) return undefined
-  if (record.version === 1) return { version: WORKSPACE_PREFERENCES_VERSION, pinnedWorkspaceIds, workspaceGroups: [] }
-  if (record.version !== WORKSPACE_PREFERENCES_VERSION) return undefined
-  const workspaceGroups = parseStoredWorkspaceGroups(record.workspaceGroups)
-  return workspaceGroups === undefined ? undefined : { version: WORKSPACE_PREFERENCES_VERSION, pinnedWorkspaceIds, workspaceGroups }
+  if (record.version !== 1 && record.version !== WORKSPACE_PREFERENCES_VERSION) return undefined
+  return { version: WORKSPACE_PREFERENCES_VERSION, pinnedWorkspaceIds }
 }
 
 export async function readWorkspacePreferences(path = workspacePreferencesPath()): Promise<StoredWorkspacePreferences> {
@@ -47,7 +44,7 @@ export async function readWorkspacePreferences(path = workspacePreferencesPath()
     return { ...preferences, exists: true }
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return { version: WORKSPACE_PREFERENCES_VERSION, pinnedWorkspaceIds: [], workspaceGroups: [], exists: false }
+      return { version: WORKSPACE_PREFERENCES_VERSION, pinnedWorkspaceIds: [], exists: false }
     }
     throw error
   }
@@ -60,15 +57,14 @@ function temporaryPath(path: string): string {
 let writeQueue: Promise<void> = Promise.resolve()
 
 /** 串行、原子保存，避免快速拖动排序产生乱序或半截 JSON。 */
-export function writeWorkspacePreferences(pinnedWorkspaceIds: readonly string[], workspaceGroups: readonly WorkspaceGroup[] = [], path = workspacePreferencesPath()): Promise<void> {
+export function writeWorkspacePreferences(pinnedWorkspaceIds: readonly string[], path = workspacePreferencesPath()): Promise<void> {
   const normalized = parsePinnedWorkspaceIds([...pinnedWorkspaceIds])
-  const normalizedGroups = parseStoredWorkspaceGroups([...workspaceGroups])
-  if (normalized === undefined || normalizedGroups === undefined) return Promise.reject(new Error('工作区偏好数据无效。'))
+  if (normalized === undefined) return Promise.reject(new Error('置顶偏好数据无效。'))
   const task = writeQueue.catch(() => undefined).then(async () => {
     await mkdir(dirname(path), { recursive: true })
     const temporary = temporaryPath(path)
     try {
-      await writeFile(temporary, `${JSON.stringify({ version: WORKSPACE_PREFERENCES_VERSION, pinnedWorkspaceIds: normalized, workspaceGroups: normalizedGroups }, undefined, 2)}\n`, 'utf8')
+      await writeFile(temporary, `${JSON.stringify({ version: WORKSPACE_PREFERENCES_VERSION, pinnedWorkspaceIds: normalized }, undefined, 2)}\n`, 'utf8')
       await rename(temporary, path)
     } finally {
       await rm(temporary, { force: true }).catch(() => undefined)

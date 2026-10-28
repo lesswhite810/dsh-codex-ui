@@ -150,7 +150,7 @@ try {
   assert.match(authenticationWarnings.at(-1) ?? '', /认证/)
   authenticationError = undefined
   rejection = undefined
-  const saved = await invoke(expectedPaths[3], 'PUT', [JSON.stringify({ pinnedWorkspaceIds: [], workspaceGroups: [] })])
+  const saved = await invoke(expectedPaths[3], 'PUT', [JSON.stringify({ pinnedWorkspaceIds: [] })])
   assert.equal(saved.status, 200, '宿主已认证的外部 Origin 不应再被旧 loopback-only 判断拒绝')
 
   // 使用锁文件中的真实宿主信任检查，仅将登录层固定为已登录，证明跨站拒绝不依赖 401。

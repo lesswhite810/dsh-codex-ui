@@ -1,12 +1,12 @@
 /** Codex 设置页的局部 tokens 与布局，不覆盖宿主其他弹窗。 */
 export const settingsPageStyles = `
-.dcu-settings-page{--sp-bg:var(--dsw-alias-bg-base,#fff);--sp-nav:var(--sp-bg);--sp-card:#fafafa;--sp-border:#e5e5e5;--sp-text:#303030;--sp-muted:#737373;--sp-hover:#e9e9e9;--sp-active:#e4e4e4;position:fixed;inset:0;z-index:1000;display:grid;grid-template-columns:clamp(240px,var(--dcu-sidebar-expanded-width,240px),min(520px,calc(100vw - 320px))) minmax(0,1fr);background:var(--sp-bg);color:var(--sp-text);font:14px/1.5 var(--dsw-font-family);text-align:left;isolation:isolate}
-body[data-ds-dark-theme] .dcu-settings-page{--sp-card:#232323;--sp-border:#333;--sp-text:#dedede;--sp-muted:#a1a1a1;--sp-hover:#292c2b;--sp-active:#303332;color-scheme:dark}
+.dcu-settings-page{--sp-bg:var(--dsw-alias-bg-base);--sp-nav:var(--dsw-specific-sidebar-fill,var(--dsw-alias-bg-base));--sp-card:var(--dsw-alias-settings-card-fill);--sp-border:var(--dsw-alias-settings-card-stroke,var(--dsw-alias-border-l2));--sp-text:var(--dsw-alias-label-primary);--sp-muted:var(--dsw-alias-label-secondary);--sp-hover:var(--dsw-alias-interactive-bg-hover);--sp-active:var(--dsw-alias-interactive-bg-active);position:fixed;inset:0;z-index:1000;display:grid;grid-template-columns:clamp(240px,var(--dcu-sidebar-expanded-width,240px),min(520px,calc(100vw - 320px))) minmax(0,1fr);background:var(--sp-bg);color:var(--sp-text);font:14px/1.5 var(--dsw-font-family);text-align:left;isolation:isolate}
+
 .dcu-settings-page *{box-sizing:border-box}
 .dcu-settings-page button,.dcu-settings-page input{font:inherit}
 .dcu-settings-page button{cursor:pointer}
-.dcu-settings-page :focus-visible{outline:2px solid #459cff;outline-offset:3px}
-.dcu-settings-nav{--sp-text:var(--dcu-sidebar-navigation,#4e5253);--sp-muted:var(--dcu-sidebar-secondary,#676b6c);--sp-hover:var(--dcu-sidebar-hover,#dfe8e5);--sp-active:var(--dcu-sidebar-hover,#dfe8e5);--sp-border:var(--dcu-sidebar-border,rgba(37,46,41,.10));display:flex;flex-direction:column;min-height:0;padding:18px 8px;background:var(--sp-nav);box-shadow:inset -1px 0 var(--sp-border);overflow:hidden}
+.dcu-settings-page :focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:3px}
+.dcu-settings-nav{--sp-text:var(--dsw-alias-label-primary);--sp-muted:var(--dsw-alias-label-secondary);--sp-hover:var(--dsw-specific-sidebar-nav-item-hover,var(--dsw-alias-interactive-bg-hover));--sp-active:var(--dsw-specific-sidebar-nav-item-hover,var(--dsw-alias-interactive-bg-hover));--sp-border:var(--dsw-alias-border-l2);display:flex;flex-direction:column;min-height:0;padding:18px 8px;background:var(--sp-nav);box-shadow:inset -1px 0 var(--sp-border);overflow:hidden}
 /* 返回、插槽头与搜索框常驻，只有分区列表滚动。 */
 .dcu-settings-nav>*{flex:none}
 .dcu-settings-nav>.dcu-settings-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--sp-border) transparent}
@@ -24,11 +24,11 @@ html:is([data-platform=darwin],[data-windows-titlebar]):not([data-fullscreen]) .
 html[data-windows-titlebar]:has(.dcu-settings-page){--dsh-windows-menu-start:12px}
 /* Windows 全屏时隐藏 Desktop 菜单，避免悬空遮挡设置页内容。 */
 html[data-windows-titlebar][data-fullscreen] [data-windows-menu]{display:none!important}
-body[data-ds-dark-theme] .dcu-settings-nav{--sp-text:var(--dcu-sidebar-navigation,#b9bab9);--sp-muted:var(--dcu-sidebar-secondary,#909191);--sp-hover:var(--dcu-sidebar-hover,#303432);--sp-active:var(--dcu-sidebar-hover,#303432);--sp-border:var(--dcu-sidebar-border,rgba(255,255,255,.08))}
+
 .dcu-settings-back{display:flex;align-items:center;flex-shrink:0;gap:8px;width:100%;height:30px;padding:5px 8px;border:0;border-radius:10px;background:transparent;color:var(--sp-text);text-align:left}
 .dcu-settings-back:hover,.dcu-settings-link:hover{background:var(--sp-hover)}
 .dcu-settings-search{display:flex;align-items:center;gap:8px;padding:5px 9px;margin:12px 0 18px;background:var(--sp-hover);border:1px solid transparent;border-radius:8px;color:var(--sp-muted)}
-.dcu-settings-search:focus-within{border-color:#459cff}
+.dcu-settings-search:focus-within{border-color:var(--dsw-alias-state-business-primary)}
 .dcu-settings-search input{width:100%;min-width:0;border:0;background:transparent;color:var(--sp-text);outline:none;font-size:13px}
 .dcu-settings-search input[type=search]{appearance:none;padding:0;border-radius:0;box-shadow:none;line-height:20px}
 .dcu-settings-search input:focus,.dcu-settings-search input:focus-visible{outline:none;box-shadow:none}
@@ -68,26 +68,26 @@ body[data-ds-dark-theme] .dcu-settings-nav{--sp-text:var(--dcu-sidebar-navigatio
 .dcu-settings-developer-tools-copy{min-width:0}
 .dcu-settings-developer-tools-title{font-size:14px;line-height:20px;font-weight:400;color:var(--sp-text)}
 .dcu-settings-developer-tools-description{margin-top:4px;font-size:12px;line-height:18px;color:var(--sp-muted)}
-.dcu-settings-developer-tools-error{margin-top:4px;font-size:12px;line-height:18px;color:#f87171}
-.dcu-settings-switch{box-sizing:border-box;position:relative;flex:0 0 auto;width:36px;height:20px;padding:2px;border:0;border-radius:999px;background:var(--dsw-alias-border-l3,rgba(127,127,127,.35));cursor:pointer;outline:none}
-.dcu-settings-switch:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary,#459cff);outline-offset:2px}
-.dcu-settings-switch[aria-checked=true]{background:var(--dsw-alias-brand-primary,#000)}
+.dcu-settings-developer-tools-error{margin-top:4px;font-size:12px;line-height:18px;color:var(--dsw-alias-state-error-primary)}
+.dcu-settings-switch{box-sizing:border-box;position:relative;flex:0 0 auto;width:36px;height:20px;padding:2px;border:0;border-radius:999px;background:var(--dsw-alias-border-l3);cursor:pointer;outline:none}
+.dcu-settings-switch:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}
+.dcu-settings-switch[aria-checked=true]{background:var(--dsw-alias-brand-primary)}
 .dcu-settings-switch:disabled{cursor:default;opacity:.5}
-.dcu-settings-switch-thumb{display:block;width:16px;height:16px;border-radius:50%;background:var(--dsw-alias-switch-thumb,#fff);box-shadow:0 1px 2px rgba(0,0,0,.15);transition:transform 120ms ease;pointer-events:none}
-.dcu-settings-switch[aria-checked=true] .dcu-settings-switch-thumb{background:var(--dsw-alias-label-primary-foreground,#fff);transform:translateX(16px)}
+.dcu-settings-switch-thumb{display:block;width:16px;height:16px;border-radius:50%;background:var(--dsw-alias-switch-thumb);box-shadow:var(--dsw-shadow-lv1);transition:transform 120ms ease;pointer-events:none}
+.dcu-settings-switch[aria-checked=true] .dcu-settings-switch-thumb{background:var(--dsw-alias-label-primary-foreground);transform:translateX(16px)}
 .dcu-settings-document-copy{min-width:0}
 .dcu-settings-document p{margin:4px 0 0;font-size:12px;color:var(--sp-muted);overflow-wrap:anywhere}
 .dcu-settings-document button{flex:none;min-height:36px;padding:8px 16px;border:0;border-radius:8px;background:var(--sp-hover);color:var(--sp-text);font:inherit;font-size:13px;cursor:pointer;transition:background .15s}
-.dcu-settings-document button:hover:not(:disabled){background:color-mix(in srgb,var(--sp-text) 14%,transparent)}
+.dcu-settings-document button:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}
 .dcu-settings-document button:focus-visible{outline:2px solid var(--sp-muted);outline-offset:3px}
 .dcu-settings-document button:disabled{opacity:.55;cursor:wait}
 .dcu-settings-trigger{appearance:none;box-sizing:border-box;display:flex;align-items:center;border:0;border-radius:8px;background:transparent;color:var(--dcu-sidebar-navigation,inherit);height:36px;min-height:36px;padding:0 4px;width:100%;font:400 14px/20px var(--dsw-font-family);text-align:left;cursor:pointer;transition:background-color 160ms ease,color 160ms ease,transform 120ms ease}
 .dcu-settings-trigger-content{display:grid;grid-template-columns:20px minmax(0,1fr);column-gap:8px;align-items:center;width:100%;min-width:0}
 .dcu-settings-trigger-content svg{display:block;width:16px;height:16px;color:var(--dcu-sidebar-icon,currentColor);transition:transform 220ms cubic-bezier(.16,1,.3,1)}
-.dcu-settings-trigger:hover{background:var(--dcu-sidebar-hover,rgba(127,127,127,.12));color:var(--dcu-sidebar-primary,inherit)}
+.dcu-settings-trigger:hover{background:var(--dcu-sidebar-hover,var(--dsw-alias-interactive-bg-hover));color:var(--dcu-sidebar-primary,inherit)}
 .dcu-settings-trigger:hover svg{transform:rotate(18deg)}
 .dcu-settings-trigger:active{transform:scale(.98)}
-.dcu-settings-trigger:focus-visible{outline:2px solid #459cff;outline-offset:2px;background:var(--dcu-sidebar-hover,rgba(127,127,127,.12))}
+.dcu-settings-trigger:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px;background:var(--dcu-sidebar-hover,var(--dsw-alias-interactive-bg-hover))}
 .dcu-settings-trigger[data-wide=false]{justify-content:center;width:36px;padding:0!important}
 .dcu-settings-trigger[data-wide=false] .dcu-settings-trigger-content{grid-template-columns:16px;justify-content:center}
 .dcu-settings-page{animation:dcu-settings-enter 180ms ease-out}
@@ -100,13 +100,13 @@ body[data-ds-dark-theme] .dcu-settings-nav{--sp-text:var(--dcu-sidebar-navigatio
 /* 只有 Desktop 明确提供系统背景材质时才贯通透明层，普通浏览器保持实色。 */
 html[data-dsh-native-backdrop=mica]:has(.dcu-root),html[data-dsh-native-backdrop=mica]:has(.dcu-root) body,html[data-dsh-native-backdrop=mica] #root,html[data-dsh-native-backdrop=mica] #root>[data-slot=root],html[data-dsh-native-backdrop=mica] #root>[data-slot=root]>div{background:transparent!important}
 html[data-dsh-native-backdrop=mica] #root>[data-slot=root]>div>div:has(>[data-slot=sidebar]){background:transparent!important}
-html[data-dsh-native-backdrop=mica] #root :is([class$="_centerCol"],[class$="_detailsCol"]){background:var(--dsw-alias-bg-base,#fff)}
+html[data-dsh-native-backdrop=mica] #root :is([class$="_centerCol"],[class$="_detailsCol"]){background:var(--dsw-alias-bg-base)}
 /* 会话折叠容器显式设了 visible，必须同时隐藏隔离分支的后代，避免穿透透明设置页。 */
 html[data-dsh-native-backdrop=mica] body:has(.dcu-settings-page) .dcu-root :is([inert],[inert] *){visibility:hidden!important}
 /* 同步隐藏本设置页隔离的外部 portal，保留引导模态及其他组件自己的 inert 语义。 */
 body:has(.dcu-settings-page) :is([data-dcu-settings-isolated],[data-dcu-settings-isolated] *){visibility:hidden!important}
 body:has(.dcu-settings-page) > [role=alert]{visibility:visible!important}
-html[data-dsh-native-backdrop=mica] :is(.dcu-settings-page,.dcu-settings-nav),html[data-dsh-native-backdrop=mica] body:has(.dcu-settings-page) .dcu-root{background:transparent}
+html[data-dsh-native-backdrop=mica] .dcu-settings-page,html[data-dsh-native-backdrop=mica] body:has(.dcu-settings-page) .dcu-root{background:transparent}
 
 .dcu-plugin-config [data-plugin-panel]{height:auto;padding:0;overflow:visible;align-items:stretch;gap:24px}
 .dcu-plugin-config [data-plugin-panel]>*{max-width:none}

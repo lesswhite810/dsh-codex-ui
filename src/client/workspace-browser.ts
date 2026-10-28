@@ -177,8 +177,6 @@ export function orderByIds<T>(items: readonly T[], ids: readonly string[], idOf:
 type SessionMoveExpansionTarget = {
   workspaceId: string
   pinned: boolean
-  groupId?: string
-  hasGroups: boolean
 }
 
 /** 展开移动目标的全部父级，保证页面重载并选中会话后该行仍然可见。 */
@@ -194,15 +192,12 @@ export function expandedForSessionMove(
   }
   next['section:projects'] = true
   next[target.workspaceId] = true
-  if (target.groupId !== undefined) next[`workspace-group:${target.groupId}`] = true
-  else if (target.hasGroups) next['workspace-group:ungrouped'] = true
   return next
 }
 
 export type CurrentSessionExpansionTree = {
   workspaces: readonly { workspaceId: string; sessionIds: readonly string[] }[]
   pinnedWorkspaceIds: readonly string[]
-  groups: readonly { id: string; workspaceIds: readonly string[] }[]
   recentIds: readonly string[]
 }
 
@@ -230,44 +225,16 @@ export function expandedForCurrentSession(
     return expandedForSessionMove(current, {
       workspaceId: String(workspaceId),
       pinned: tree.pinnedWorkspaceIds.includes(String(workspaceId)),
-      groupId: tree.groups.find(group => group.workspaceIds.includes(String(workspaceId)))?.id,
-      hasGroups: tree.groups.length > 0,
     })
   }
   if (tree.recentIds.includes(sessionId)) return { ...current, 'section:recent': true }
   return { ...current }
 }
 
-type WorkspaceGroupSummary = {
-  id: string
-  title: string
-  workspaceIds: readonly string[]
-}
-
-export type WorkspaceGroupMoveTarget = {
-  groupId: string | undefined
-  title: string | undefined
-}
-
-/** 仅提供真正改变归属的目标；未分组目标固定排在自定义分组之后。 */
-export function workspaceGroupMoveTargets(
-  groups: readonly WorkspaceGroupSummary[],
-  workspaceId: string,
-): WorkspaceGroupMoveTarget[] {
-  const currentGroupId = groups.find(group => group.workspaceIds.includes(workspaceId))?.id
-  const targets: WorkspaceGroupMoveTarget[] = groups
-    .filter(group => group.id !== currentGroupId)
-    .map(group => ({ groupId: group.id, title: group.title }))
-  if (currentGroupId !== undefined) targets.push({ groupId: undefined, title: undefined })
-  return targets
-}
-
 export const SESSION_DRAG_TYPE = 'application/x-dcu-session'
 export const WORKSPACE_DRAG_TYPE = 'application/x-dcu-workspace'
-export const WORKSPACE_GROUP_DRAG_TYPE = 'application/x-dcu-workspace-group'
 const SESSION_DRAG_PREFIX = 'dcu-session:'
 const WORKSPACE_DRAG_PREFIX = 'dcu-workspace:'
-const WORKSPACE_GROUP_DRAG_PREFIX = 'dcu-workspace-group:'
 
 function textPayload(data: DataTransfer | undefined): string {
   try { return data?.getData('text/plain') ?? '' } catch { return '' }
@@ -288,13 +255,6 @@ export function writeWorkspaceDrag(data: DataTransfer, workspaceId: string, titl
   void title
 }
 
-export function writeWorkspaceGroupDrag(data: DataTransfer, groupId: string, title: string): void {
-  data.effectAllowed = 'move'
-  data.setData('text/plain', `${WORKSPACE_GROUP_DRAG_PREFIX}${groupId}`)
-  data.setData(WORKSPACE_GROUP_DRAG_TYPE, groupId)
-  void title
-}
-
 export function readSessionDrag(data: DataTransfer | undefined, fallback?: string): string | undefined {
   try {
     const typed = data?.getData(SESSION_DRAG_TYPE)
@@ -309,21 +269,8 @@ export function sessionDropAction(sourceWorkspaceId: string | undefined, targetW
   return sourceWorkspaceId !== undefined && sourceWorkspaceId === targetWorkspaceId ? 'reorder' : 'move'
 }
 
-export function readWorkspaceGroupDrag(data: DataTransfer | undefined, fallback?: string): string | undefined {
-  if (readSessionDrag(data) !== undefined) return undefined
-  try {
-    const typed = data?.getData(WORKSPACE_GROUP_DRAG_TYPE)
-    if (typed !== undefined && typed.trim() !== '') return typed
-  } catch { /* Chrome 在 dragover 阶段不允许 getData */ }
-  const text = textPayload(data)
-  if (text.startsWith(WORKSPACE_GROUP_DRAG_PREFIX)) return text.slice(WORKSPACE_GROUP_DRAG_PREFIX.length)
-  return fallback !== undefined && fallback.trim() !== '' ? fallback : undefined
-}
-
-/** 会话拖拽优先；有会话载荷时不得再把父项目置顶。 */
 export function readWorkspaceDrag(data: DataTransfer | undefined, fallback?: string): string | undefined {
   if (readSessionDrag(data) !== undefined) return undefined
-  if (readWorkspaceGroupDrag(data) !== undefined) return undefined
   try {
     const typed = data?.getData(WORKSPACE_DRAG_TYPE)
     if (typed !== undefined && typed.trim() !== '') return typed

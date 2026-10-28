@@ -39,15 +39,15 @@ describe('统一排序线几何', () => {
     box('#a', 20, 30)
     expect(measureWorkspaceDropIndicator(root)).toBeDefined()
   })
-  it('12px 分组间距取中点，不使用固定上移4px', () => {
-    const { root, box } = fixture('<div class="dcu-wb-collection-head" id="a"></div><div class="dcu-wb-group-order-drop"><div class="dcu-wb-collection-head" id="b"></div></div>')
+  it('项目间 12px 间距取中点，不使用固定上移4px', () => {
+    const { root, box } = fixture('<div class="dcu-wb-project-head" id="a"></div><div class="dcu-wb-drop"><div class="dcu-wb-project-head" id="b"></div></div>')
     box('#a', 20, 32); box('#b', 64, 32)
     expect(measureWorkspaceDropIndicator(root)?.top).toBe(58 - 4)
     expect(measureWorkspaceDropIndicator(root)?.left).toBe(14)
     expect(measureWorkspaceDropIndicator(root)?.width).toBe(228)
   })
-  it('首项目忽略外层padding，取分组底边和项目顶边', () => {
-    const { root, box } = fixture('<div class="dcu-wb-collection-head" id="a"></div><div class="dcu-wb-drop" id="wrapper"><div class="dcu-wb-project-head" id="b"></div></div>')
+  it('首项目忽略外层padding，取分区标题底边和项目顶边', () => {
+    const { root, box } = fixture('<div class="dcu-wb-section-head" id="a"></div><div class="dcu-wb-drop" id="wrapper"><div class="dcu-wb-project-head" id="b"></div></div>')
     box('#a', 20, 32); box('#wrapper', 52, 34); box('#b', 56, 30)
     expect(measureWorkspaceDropIndicator(root)?.top).toBe(54 - 4)
   })

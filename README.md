@@ -113,7 +113,6 @@ Open DSH Web. The left navigation is rendered by this plugin.
 | Manage a conversation | Open the conversation menu to rename, pin, mark unread, archive, fork, copy, or delete. |
 | Reuse input | Press Up/Down in an empty composer to recall text submitted in the current workspace. |
 | Jump between turns | Use the turn marks on the left of the current conversation. |
-| Inspect connectors | Open **Settings → Connectors**. Addresses, commands, and credentials are never shown. |
 
 ## FAQ
 
@@ -159,7 +158,7 @@ dsh --profile web --dump-config
 
 Restart DSH Web and hard-refresh the browser. Do not copy `lib` manually; local installation reads both package metadata and `cordis.patch.yml`.
 
-- [src\index.ts](src/index.ts): host entry and the non-sensitive Connectors directory endpoint.
+- [src\index.ts](src/index.ts): host entry and the business REST endpoints.
 - [src\client\index.ts](src/client/index.ts): client entry for sidebar, workspace tree, turn navigation, and Settings sections.
 - [src\client\CodexSidebar.tsx](src/client/CodexSidebar.tsx): sidebar shell, search panel, and visual styles.
 - [src\client\CodexWorkspaceBrowser.tsx](src/client/CodexWorkspaceBrowser.tsx): workspace and conversation interactions.

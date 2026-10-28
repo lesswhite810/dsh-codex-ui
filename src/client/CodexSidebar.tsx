@@ -109,7 +109,7 @@ html[data-platform=darwin]:not([data-fullscreen]) .dcu-root.dcu-compact{padding-
 [data-dcu-codex-sidebar-initialized] [data-side="sidebar"]{transition:left 500ms cubic-bezier(.16,1,.3,1)}
 [data-dcu-codex-sidebar-initialized][data-dragging],[data-dcu-codex-sidebar-initialized][data-dragging] [data-side="sidebar"]{transition:none}
 @media (prefers-reduced-motion:reduce){[data-dcu-codex-sidebar-initialized],[data-dcu-codex-sidebar-initialized] [data-side="sidebar"],#root [data-dcu-codex-sidebar-initialized]:not([data-dragging]){transition:none}.dcu-root.dcu-collapsing .dcu-compact-shell{animation:none}}
-.dcu-native-workspaces{flex-direction:column}.dcu-native-workspaces>[data-mcp-connector-top-mount=true]{flex:none}.dcu-root .mcpConnectorLauncher,.dcu-root [data-mcp-connector-top-mount=true]{display:none!important}
+.dcu-native-workspaces{flex-direction:column}
 .dcu-search-scrim{position:fixed;z-index:10020;inset:0;display:flex;justify-content:center;align-items:flex-start;padding:72px 20px;background:var(--dsw-alias-bg-mask-1);animation:dcu-search-scrim-in 140ms ease-out}.dcu-search-dialog{width:min(560px,100%);max-height:min(640px,calc(100vh - 120px));overflow:auto;border:1px solid var(--dcu-sidebar-border);border-radius:16px;padding:10px;background:var(--dsw-alias-bg-overlay);box-shadow:var(--dsw-shadow-lv3);animation:dcu-search-dialog-in 180ms cubic-bezier(.16,1,.3,1)}@keyframes dcu-search-scrim-in{from{opacity:0}to{opacity:1}}@keyframes dcu-search-dialog-in{from{opacity:0;transform:translateY(-6px) scale(.985)}to{opacity:1}}.dcu-search-input{margin-bottom:8px}.dcu-search-section{padding:6px 0}.dcu-search-title{padding:0 8px 4px;color:var(--dcu-sidebar-tertiary);font-size:12px;font-weight:600}.dcu-search-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;width:100%;min-height:34px;border:0;border-radius:8px;padding:6px 8px;background:transparent;color:var(--dcu-sidebar-primary);font:inherit;text-align:left;cursor:pointer}.dcu-search-row:hover,.dcu-search-row[data-active=true]{background:var(--dcu-sidebar-hover)}.dcu-search-main{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dcu-search-detail{max-width:160px;overflow:hidden;color:var(--dcu-sidebar-tertiary);font-size:12px;text-overflow:ellipsis;white-space:nowrap}.dcu-search-empty{padding:18px 8px;color:var(--dcu-sidebar-tertiary);font-size:13px}@media (prefers-reduced-motion:reduce){.dcu-expanded-shell,.dcu-root.dcu-compact .dcu-compact-shell,.dcu-foot,.dcu-search-scrim,.dcu-search-dialog{animation:none;transition:none}}
 [data-conversation-scroll]{--dsh-composer-card-max-width:calc(var(--dsh-chat-content-width) + 32px);--dsh-composer-side-clearance:24px;--dcu-composer-bg:var(--dsw-specific-input-major);--dcu-composer-shadow:0 0 0 1px var(--dsw-alias-border-l1),var(--dsw-shadow-lv2)}
 
@@ -170,19 +170,16 @@ function SidebarSearchModal({
   const sessions = useSessions(state => state)
   const workspaces = useWorkspaces(state => state)
 
-  const selectSection = useCallback((label: string): void => {
-    openSettingsSection(settingsSeat.current, label)
-  }, [settingsSeat])
   const selectExternalSection = useCallback((label: string | readonly string[]): void => {
     openSettingsSection(settingsSeat.current, label, () => { openSettingsRoot(settingsSeat.current) })
-  }, [selectSection, settingsSeat, t])
+  }, [settingsSeat, t])
   const openImSettings = useCallback((): void => {
     routeOptionalSettingsSection(
       imSettingsAvailable,
       () => { selectExternalSection([t('sidebar.imSettings'), 'IM助理']) },
       () => { openSettingsRoot(settingsSeat.current) },
     )
-  }, [imSettingsAvailable, selectExternalSection, selectSection, t])
+  }, [imSettingsAvailable, selectExternalSection, t])
   const openSettings = useCallback((): void => {
     openSettingsRoot(settingsSeat.current)
   }, [settingsSeat])
@@ -201,12 +198,11 @@ function SidebarSearchModal({
       { id: 'settings:skills', group: 'settings', label: t('sidebar.skills'), keywords: t('search.settings'), run: () => { onClose(); selectExternalSection(t('sidebar.skills')) } },
       { id: 'settings:plugins', group: 'settings', label: t('sidebar.plugins'), keywords: t('search.settings'), run: () => { onClose(); openPlugins() } },
       { id: 'settings:plugin-config', group: 'settings', label: t('settings.pluginConfig'), keywords: t('search.settings'), run: () => { onClose(); openSettingsSection(settingsSeat.current, t('settings.pluginConfig')) } },
-      { id: 'settings:connectors', group: 'settings', label: t('sidebar.connectors'), keywords: t('search.settings'), run: () => { onClose(); selectSection(t('sidebar.connectors')) } },
       { id: 'settings:schedule', group: 'settings', label: t('sidebar.schedule'), keywords: t('search.settings'), run: () => { onClose(); selectExternalSection(t('sidebar.schedule')) } },
       { id: 'settings:assistant', group: 'settings', label: t('sidebar.assistant'), keywords: t('search.settings'), run: () => { onClose(); openImSettings() } },
     ]
     return [...sessionEntries, ...settingEntries, { id: 'action:new', group: 'actions', label: t('sidebar.newTask'), keywords: t('search.actions'), run: () => { onClose(); startSession() } }]
-  }, [imSettingsAvailable, onClose, openImSettings, openPlugins, openSession, openSettings, selectExternalSection, selectSection, sessions.byId, sessions.ids, startSession, t, workspaces.archivedSessionIds, workspaces.items])
+  }, [imSettingsAvailable, onClose, openImSettings, openPlugins, openSession, openSettings, selectExternalSection, sessions.byId, sessions.ids, startSession, t, workspaces.archivedSessionIds, workspaces.items])
   const results = useMemo(() => filterSidebarSearchItems(entries, deferredQuery).slice(0, 12), [deferredQuery, entries])
 
   useEffect(() => { setActiveIndex(0) }, [query])

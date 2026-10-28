@@ -1,4 +1,4 @@
-import { deepLinkAction, openConversation, openConversationWithDraft, selectGlobalPanel } from './session-navigation.ts'
+import { deepLinkAction, openConversation, selectGlobalPanel } from './session-navigation.ts'
 import { createNavigationHistory } from './navigation-history.ts'
 import { createWorkspaceShortcutSource } from './workspace-shortcuts.ts'
 import { registerWorkspaceDirectoryFlow, WORKSPACE_DIRECTORY_FLOW } from './workspace-directory-flow.ts'
@@ -31,7 +31,6 @@ import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
 import { CodexSidebar } from './CodexSidebar.tsx'
 import { CodexWorkspaceBrowser } from './CodexWorkspaceBrowser.tsx'
-import { ConnectorsSection } from './ConnectorsSection.tsx'
 import { en, NS, zh } from './locales.ts'
 import { createCompanionTabSource } from './companion-slots.ts'
 import { createFooterActionSource, type FooterAction, type FooterActionSource } from './footer-actions.ts'
@@ -47,7 +46,7 @@ import { TurnNavigator } from './TurnNavigator.tsx'
 import { registerInputHistory } from './InputHistoryDock.tsx'
 import { prefillNewConversation, createDraftPresenceSource } from './new-conversation-draft.ts'
 import { observeComposerToolMenus } from './composer-tool-menus.ts'
-import { hasConnectWorkspace, hasOpenWorkspace, hasStartSession, recentWorkspaceId, workspaceBaselinesReady } from './workspace-compat.ts'
+import { hasStartSession } from './workspace-compat.ts'
 import { HostActionError, type HostAction, UserFacingError } from './user-error.ts'
 import { finishSessionMove, requestSessionMove, sessionMoveErrorKey, SessionMoveRequestError } from './session-move.ts'
 import { hasArchiveSessionDelete } from './archive-session-delete.ts'
@@ -310,44 +309,6 @@ export function apply(ctx: ClientContext): void {
       navigate: url => { window.location.replace(url) },
     })
   }
-  const startConnectorPromptSession = async (promptText: string): Promise<void> => {
-    const prompt = promptText.trim()
-    if (prompt === '') throw new UserFacingError(t('connectors.promptRequired'))
-    const workspaces = ctx.workspaces.list.getSnapshot()
-    const sessionSnapshot = ctx.sessions.list.getSnapshot()
-    const selectedSessionId = currentSessionId(sessionSnapshot)
-    const currentWorkspaceId = selectedSessionId === undefined
-      ? undefined
-      : workspaces.items.find(workspace => workspace.sessionIds.includes(selectedSessionId as SessionId))?.workspaceId
-    const baselinesReady = workspaceBaselinesReady(workspaces, sessionSnapshot)
-    const targetWorkspaceId = currentWorkspaceId ?? (baselinesReady ? recentWorkspaceId(workspaces.items, sessionSnapshot.byId) : undefined)
-    if (targetWorkspaceId === undefined && !baselinesReady) throw new UserFacingError(t('connectors.workspacesLoading'))
-    if (targetWorkspaceId === undefined) throw new UserFacingError(t('connectors.workspaceRequired'))
-    const uiWorkspace = probeService(ctx, 'uiWorkspace')
-    const conversation = ctx.get('conversation')
-    if (conversation === undefined) throw new UserFacingError(t('connectors.conversationUnavailable'))
-    try {
-      if (hasOpenWorkspace(uiWorkspace)) {
-        await Promise.resolve(uiWorkspace.openWorkspace(targetWorkspaceId, id => {
-          const binding = ctx.sessions.binding(id)
-          if (binding?.ctx === undefined) throw new UnknownSessionError()
-          conversation.input.for(binding.ctx as ClientContext).setDraft(prompt)
-        }))
-        selectGlobalPanel(ctx.layout, null)
-        return
-      }
-      const workspaceNavigation = hasConnectWorkspace(uiWorkspace) ? uiWorkspace : hasConnectWorkspace(ctx.workspaces) ? ctx.workspaces : undefined
-      if (workspaceNavigation === undefined) throw new UserFacingError(t('connectors.workspaceUnavailable'))
-      const sessionId = await workspaceNavigation.connectWorkspace(targetWorkspaceId)
-      await openConversationWithDraft(ctx, ctx.layout, ctx.sessions, sessionId, binding => {
-        if (binding.ctx === undefined) throw new UnknownSessionError()
-        conversation.input.for(binding.ctx as ClientContext).setDraft(prompt)
-      })
-    } catch (reason) {
-      if (reason instanceof UnknownSessionError) throw new UserFacingError(t('connectors.sessionPending'))
-      throw reason
-    }
-  }
   ctx.slots.inject('sidebar.workspaces', () => ctx.slots.register({
     name: 'sidebar.workspaces', priority: -1, locale: NS,
     inject: () => ({
@@ -396,10 +357,4 @@ export function apply(ctx: ClientContext): void {
     openDeepLink()
     return ctx.sessions.list.subscribe(openDeepLink)
   }, 'michengai-codex-ui: session deep link')
-
-  ctx.slots.inject('settings.section', () => ctx.slots.register({
-    name: 'settings.section', id: 'connectors', order: 30, label: () => t('sidebar.connectors'),
-    ...({ icon: 'connector' } as Record<string, unknown>),
-    inject: () => ({ sessionStore: ctx.sessions.list, startPromptSession: startConnectorPromptSession, t }),
-  }, ConnectorsSection))
 }

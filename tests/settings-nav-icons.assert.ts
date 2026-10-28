@@ -14,8 +14,6 @@ assert.equal(settingsNavIconId('技能'), 'skills')
 assert.equal(settingsNavIconId('Skills'), 'skills')
 assert.equal(settingsNavIconId('插件'), 'plugins')
 assert.equal(settingsNavIconId('Plugins'), 'plugins')
-assert.equal(settingsNavIconId('连接器'), 'connectors')
-assert.equal(settingsNavIconId('Connectors'), 'connectors')
 assert.equal(settingsNavIconId('定时任务'), 'schedule')
 assert.equal(settingsNavIconId('Scheduled tasks'), 'schedule')
 assert.equal(settingsNavIconId('IM助理'), 'assistant')
@@ -36,7 +34,6 @@ assert.equal(settingsNavIconId('Archived sessions'), 'archive')
 assert.equal(SETTINGS_NAV_ICON_HTML.experts.includes('M11.0307 5.46369'), true, '专家必须使用侧栏用户图标')
 assert.equal(SETTINGS_NAV_ICON_HTML.skills.includes('M12.5113 15.4067'), true, '技能必须使用侧栏技能图标')
 assert.equal(SETTINGS_NAV_ICON_HTML.plugins.includes('translate(1.292 1.3)'), true, '插件必须使用侧栏个性化图标')
-assert.equal(SETTINGS_NAV_ICON_HTML.connectors.includes('M9.94133 6.50173'), true, '连接器必须使用侧栏链接图标')
 assert.equal(SETTINGS_NAV_ICON_HTML.schedule.includes('M8 1.15A6.85'), true, '定时任务必须使用侧栏时钟图标')
 assert.equal(SETTINGS_NAV_ICON_HTML.assistant.includes('M2.15 2.9h11.7v8.2'), true, 'IM 必须使用侧栏气泡图标')
 assert.equal(SETTINGS_NAV_ICON_HTML.archive.includes('M15.8659 2.05975'), true, '已归档必须使用归档盒图标')
@@ -44,21 +41,21 @@ assert.equal(SETTINGS_NAV_ICON_HTML.archive.includes('M15.8659 2.05975'), true, 
 const fixture = new JSDOM(`
   <div role="dialog">
     <nav><div>
-      <button><svg></svg><span>连接器</span></button>
+      <button><svg></svg><span>专家</span></button>
       <button><svg></svg><span>侧边卡片</span></button>
       <button><span><svg></svg></span><span>定时任务</span></button>
     </div></nav>
   </div>
 `)
-const [connectorButton, sideCardButton, wrappedIconButton] = fixture.window.document.querySelectorAll<HTMLButtonElement>('button')
-assert.equal(applySettingsNavIcons(fixture.window.document), 1, '连接器导航必须应用插件图标')
+const [expertButton, sideCardButton, wrappedIconButton] = fixture.window.document.querySelectorAll<HTMLButtonElement>('button')
+assert.equal(applySettingsNavIcons(fixture.window.document), 1, '专家导航必须应用插件图标')
 assert.equal(sideCardButton?.style.getPropertyValue('order'), '', '不得改变其他插件设置入口的顺序')
 assert.equal(wrappedIconButton?.hasAttribute('data-dcu-nav-icon'), false, '包裹型图标不能被当成宿主直出图标')
 assert.equal(wrappedIconButton?.querySelector('.dcu-settings-nav-icon'), null, '包裹型图标不应注入额外 mask')
-assert.equal(connectorButton?.getAttribute('data-dcu-nav-icon'), 'connectors', '导航按钮必须带插件图标 marker')
-assert.equal(connectorButton?.querySelector('svg')?.innerHTML, '', '不得改写宿主 svg 内容')
-assert.equal(connectorButton?.children.length, 2, '禁止向 button 插入任何真实 DOM 节点')
-assert.match(connectorButton?.style.getPropertyValue('--dcu-settings-nav-icon-mask') ?? '', /^url\("data:image\/svg\+xml,/, '导航图标必须使用独立 mask')
+assert.equal(expertButton?.getAttribute('data-dcu-nav-icon'), 'experts', '导航按钮必须带插件图标 marker')
+assert.equal(expertButton?.querySelector('svg')?.innerHTML, '', '不得改写宿主 svg 内容')
+assert.equal(expertButton?.children.length, 2, '禁止向 button 插入任何真实 DOM 节点')
+assert.match(expertButton?.style.getPropertyValue('--dcu-settings-nav-icon-mask') ?? '', /^url\("data:image\/svg\+xml,/, '导航图标必须使用独立 mask')
 assert.equal(applySettingsNavIcons(fixture.window.document), 0, '重复观察设置导航时不得产生额外修改')
 
 const observer = readFileSync(new URL('../src/client/settings-nav-icons.ts', import.meta.url), 'utf8')
@@ -66,7 +63,7 @@ assert.match(observer, /requestAnimationFrame/, '设置导航观察必须按帧�
 assert.match(observer, /cancelAnimationFrame/, '卸载时必须取消挂起的设置导航帧')
 
 const cleanupDom = new JSDOM(
-  '<div role="dialog"><nav><button><svg></svg><span>连接器</span></button></nav></div>',
+  '<div role="dialog"><nav><button><svg></svg><span>专家</span></button></nav></div>',
   { pretendToBeVisual: true },
 )
 const savedGlobals: Record<string, PropertyDescriptor | undefined> = {}
@@ -79,7 +76,7 @@ Object.defineProperties(globalThis, {
 try {
   const dispose = observeSettingsNavIcons()
   const button = cleanupDom.window.document.querySelector<HTMLButtonElement>('[role="dialog"] nav button')
-  assert.equal(button?.getAttribute('data-dcu-nav-icon'), 'connectors', '观察器必须装饰设置导航按钮')
+  assert.equal(button?.getAttribute('data-dcu-nav-icon'), 'experts', '观察器必须装饰设置导航按钮')
   assert.notEqual(cleanupDom.window.document.getElementById('dcu-settings-nav-icon-style'), null, '观察器必须注入图标样式')
   dispose()
   assert.equal(button?.hasAttribute('data-dcu-nav-icon'), false, '卸载时必须移除导航图标 marker')

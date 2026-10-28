@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowLeft, Archive, Box, CircleHelp, Clock, Cpu, Link, MessageSquare, PanelRight, Search, Settings, SlidersHorizontal, Sparkles, Store, User } from 'lucide-react'
+import { ArrowLeft, Archive, Box, CircleHelp, Clock, Cpu, MessageSquare, PanelRight, Search, Settings, SlidersHorizontal, Sparkles, Store, User } from 'lucide-react'
 import type { PropsLocale, PropsRenderSlots, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { ConnectionIndicator } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ConnectionState } from '@deepseek-ai/dsh-client-connection/client'
@@ -36,7 +36,6 @@ function sectionIcon(id: string) {
   if (/about/.test(id)) return CircleHelp
   if (/expert|agency/.test(id)) return User
   if (/skill/.test(id)) return Sparkles
-  if (/connector|mcp/.test(id)) return Link
   if (/schedule|automation/.test(id)) return Clock
   if (/im|assistant/.test(id)) return MessageSquare
   if (id === 'general') return Settings

@@ -113,7 +113,6 @@ dsh --profile web --dump-config
 | 管理会话 | 打开会话菜单，进行重命名、置顶、未读、归档、派生、复制或删除。 |
 | 复用输入 | 输入框为空时按上下方向键，召回当前工作区中之前提交的文本。 |
 | 跳转轮次 | 使用当前会话左侧的轮次刻度跳转到对应提问。 |
-| 查看连接器 | 打开「设置 → 连接器」。不会展示地址、命令或凭证。 |
 
 ## 常见问题
 
@@ -159,7 +158,7 @@ dsh --profile web --dump-config
 
 完成后重启 DSH Web 并硬刷新浏览器。不要手工复制 `lib`；本地目录安装会同时读取包信息和 `cordis.patch.yml`。
 
-- [src\index.ts](src/index.ts)：Host 入口，以及不含敏感信息的连接器目录接口。
+- [src\index.ts](src/index.ts)：Host 入口，以及业务 REST 接口。
 - [src\client\index.ts](src/client/index.ts)：客户端入口，注册侧栏、工作区树、轮次导航和设置分区。
 - [src\client\CodexSidebar.tsx](src/client/CodexSidebar.tsx)：侧栏壳、搜索面板和视觉样式。
 - [src\client\CodexWorkspaceBrowser.tsx](src/client/CodexWorkspaceBrowser.tsx)：工作区和会话交互。

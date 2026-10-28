@@ -13,7 +13,6 @@ const hoverCard = readFileSync(new URL('../src/client/workspace-hover-card.tsx',
 const sessionTree = readFileSync(new URL('../src/client/session-tree.tsx', import.meta.url), 'utf8')
 const settingsNavigation = readFileSync(new URL('../src/client/settings-navigation.ts', import.meta.url), 'utf8')
 const automationTaskSettings = readFileSync(new URL('../src/client/automation-task-settings.ts', import.meta.url), 'utf8')
-const connectors = readFileSync(new URL('../src/client/ConnectorsSection.tsx', import.meta.url), 'utf8')
 const pluginConfig = readFileSync(new URL('../src/client/plugin-config.ts', import.meta.url), 'utf8')
 const pluginConfigSection = readFileSync(new URL('../src/client/PluginConfigSection.tsx', import.meta.url), 'utf8')
 const globalPanels = readFileSync(new URL('../src/client/global-panels.tsx', import.meta.url), 'utf8')
@@ -22,11 +21,9 @@ const settingsStyles = readFileSync(new URL('../src/client/settings-page-styles.
 const visualSources = [
   sidebar,
   workspaceBrowser,
-  connectors,
 ].join('\n')
 
 assert.doesNotMatch(client, /SkillsSettingsSection|id: 'skills'/, '技能页必须由独立技能管理插件提供')
-assert.match(client, /'connectors'/, '连接器必须注册为设置分区')
 assert.match(client, /registerPluginConfigSection/, '设置必须另挂一份官方插件管理页，不能改写内置插件')
 assert.match(pluginConfig, /id: PLUGIN_CONFIG_SECTION_ID/, '插件配置必须使用独立设置分区 id')
 assert.match(pluginConfig, /options.key === OFFICIAL_PLUGINS_PANEL_ID/, '插件配置必须复用官方 main 插件管理页')
@@ -84,16 +81,7 @@ assert.match(settingsStyles, /\.dcu-settings-nav\{[^}]*overflow:hidden\}/, '设�
 assert.match(settingsStyles, /\.dcu-settings-nav>\.dcu-settings-scroll\{[^}]*flex:1 1 auto;[^}]*overflow-y:auto/, '只有设置分区列表自己滚动，且其伸缩规则具有稳定优先级')
 assert.match(settingsPageSource, /<div className="dcu-settings-scroll">\s*<div className="dcu-settings-groups">/, '分区列表与空态必须放进独立滚动容器')
 assert.doesNotMatch(settingsStyles, /\.dcu-settings-(?:back|search)\{[^}]*position:sticky/, '固定头不得改用 sticky，原生半透明背板会让列表文字从下方透出')
-assert.match(sidebar, /selectSection\(t\('sidebar\.connectors'\)\)/, '连接器菜单必须直达设置内的连接器页')
-assert.match(sidebar, /\.dcu-root \.mcpConnectorLauncher,[^}]*display:none!important/, '第三方 MCP 连接器不得再保留独立侧栏入口')
-assert.match(connectors, /const MCP_CONNECTOR_UI = '\/mcp-connector\/ui\/'/, '设置连接器页必须探测第三方插件的同源 UI')
-assert.match(connectors, /fetch\(MCP_CONNECTOR_UI, \{ method: 'GET', cache: 'no-store'/, '第三方插件必须运行时探测，不能成为硬依赖')
-assert.match(connectors, /marketAvailable[^]*ConnectorMarket[^]*NativeConnectorList/, '安装插件时必须显示市场，缺失时必须回退原生工具目录')
-assert.match(connectors, /event\.origin !== window\.location\.origin[^]*event\.source !== frameWindow/, 'Prompt 消息桥接必须同时校验来源和 iframe 窗口')
-assert.match(connectors, /mcp-connector:start-session-result/, 'Prompt 消息桥接必须向插件页面返回处理结果')
-assert.match(client, /conversation\.input\.for\(binding\.ctx(?: as ClientContext)?\)\.setDraft\(prompt\)/, '插件 Prompt 必须写到当前 retain 的 binding 上')
-assert.match(client, /openConversationWithDraft|hasOpenWorkspace/, '插件 Prompt 必须在打开会话仍持有 binding 时写草稿')
-assert.match(client, /'conversation'\]/, '连接器 Prompt 桥接必须声明对话服务依赖')
+assert.match(client, /'conversation'\]/, '新会话草稿与预填必须在 apply 声明对话服务依赖')
 assert.doesNotMatch(sidebar, /settings:archives|archives\.title/, '全局搜索不得提供本插件的归档设置入口')
 assert.doesNotMatch(sidebar, />归档会话<\/button>/, '底部不得保留独立归档会话按钮')
 assert.match(sidebar, /openSettingsSection/, '设置跳转必须经过集中兼容层')
@@ -263,7 +251,6 @@ assert.match(sidebar, /\[data-slot="sidebar\.schedule"\][^}]*display:flex!import
 assert.match(sidebar, /\.dcu-expanded-shell\{[^}]*flex:1 1 0[^}]*overflow:hidden/, '长会话列表必须在侧栏内部滚动，不能把底部设置入口挤出视口')
 assert.match(client, /companionSlots/, '侧栏必须注入配套插槽占用快照')
 assert.match(sidebar, /\.dcu-native-workspaces\{flex-direction:column\}/, '工作区槽位必须纵向排列，避免第三方 Portal 入口把会话树挤成左右两列')
-assert.match(sidebar, /\.dcu-native-workspaces>\[data-mcp-connector-top-mount=true\]\{flex:none\}/, 'MCP 连接器入口必须保持独立整行，不能占用会话树的弹性空间')
 
 assert.match(sidebar, /shouldCollapseOnSidebarDrag/, '向左拖动侧栏超过阈值必须自动收缩')
 

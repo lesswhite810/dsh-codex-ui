@@ -3,7 +3,6 @@ import { act, createElement, type ReactNode } from 'react'
 import { afterEach, expect, test, vi } from 'vitest'
 import { apply, startWorkspaceSession } from '../src/client/index.ts'
 import { CodexSidebar } from '../src/client/CodexSidebar.tsx'
-import { ConnectorsSection } from '../src/client/ConnectorsSection.tsx'
 import { HostActionError } from '../src/client/user-error.ts'
 
 const createRoot = (createRequire(import.meta.url)('react-dom/client') as {
@@ -163,128 +162,6 @@ test('会话操作适配层保留 Host 结构化错误', async () => {
     action: 'delete',
     reason: deleteFailure,
   } satisfies Partial<HostActionError>)
-})
-
-test('连接器 Prompt 必须用 using 传入的 binding，并在释放前打开会话', async () => {
-  runtime = new ClientApplyHarness()
-  const usingBinding = { ctx: 'using-ctx' }
-  const drafts: Array<{ ctx: unknown; released: boolean; text: string }> = []
-  const opened: Array<{ id: string; released: boolean }> = []
-  let released = false
-  Object.assign(runtime.ctx.workspaces.list, {
-    getSnapshot: () => ({
-      items: [{ workspaceId: 'temporary-workspace', sessionIds: [], createdAt: '2026-09-03T00:00:00.000Z' }],
-      phase: 'ready',
-    }),
-  })
-  Object.assign(runtime.ctx.sessions.list, {
-    getSnapshot: () => ({ ids: [], byId: {}, phase: 'ready' }),
-  })
-  Object.assign(runtime.ctx.sessions, {
-    using: async (_id: string, _options: { source: string }, operation: (reference: { ready?: Promise<unknown>; binding?: { ctx?: unknown } }) => unknown) => {
-      try {
-        return await operation({ ready: Promise.resolve(), binding: usingBinding })
-      } finally {
-        released = true
-      }
-    },
-    binding() { throw new Error('must use using binding') },
-    retain() { return {} },
-  })
-  Object.assign(runtime.ctx, {
-    layout: { selectPanel() {} },
-    get: (name: string): unknown => name === 'connection'
-      ? { api: { host: { openPath: async () => ({ result: { ok: true, value: undefined } }) } } }
-      : name === 'uiWorkspace'
-        ? {
-            connectWorkspace: async () => 'temporary-session',
-            openSession: (id: string) => { opened.push({ id, released }) },
-          }
-        : name === 'conversation'
-          ? { input: { for(ctx: unknown) { return { setDraft(text: string) { drafts.push({ ctx, released, text }) } } } } }
-          : undefined,
-  })
-  runtime.mount()
-  const connector = runtime.slots.entries('settings.section').find(entry => entry.id === 'connectors')
-  const injected = (connector?.inject as (() => { startPromptSession: (prompt: string) => Promise<void> }))()
-  await injected.startPromptSession('检查项目')
-  expect(drafts).toEqual([{ ctx: 'using-ctx', released: false, text: '检查项目' }])
-  expect(opened).toEqual([{ id: 'temporary-session', released: false }])
-  expect(released).toBe(true)
-})
-
-test('连接器 Prompt 优先在官方 openWorkspace 的 beforeOpen 里写草稿', async () => {
-  runtime = new ClientApplyHarness()
-  const drafts: Array<{ ctx: unknown; held: boolean; text: string; id: string }> = []
-  const created: string[] = []
-  let held = false
-  Object.assign(runtime.ctx.workspaces.list, {
-    getSnapshot: () => ({
-      items: [{ workspaceId: 'temporary-workspace', sessionIds: [], createdAt: '2026-09-03T00:00:00.000Z' }],
-      phase: 'ready',
-    }),
-  })
-  Object.assign(runtime.ctx.sessions.list, {
-    getSnapshot: () => ({ ids: [], byId: {}, phase: 'ready' }),
-  })
-  Object.assign(runtime.ctx.sessions, {
-    binding: (id: string) => id === 'opened-session' && held ? { ctx: 'main-view' } : undefined,
-  })
-  const connectWorkspace = vi.fn(async () => {
-    created.push('leftover-blank')
-    return 'leftover-blank'
-  })
-  Object.assign(runtime.ctx, {
-    layout: { selectPanel() {} },
-    get: (name: string): unknown => name === 'connection'
-      ? { api: { host: { openPath: async () => ({ result: { ok: true, value: undefined } }) } } }
-      : name === 'uiWorkspace'
-        ? {
-            connectWorkspace,
-            openWorkspace: (_workspaceId: string, beforeOpen?: (sessionId: string) => void) => {
-              created.push('opened-session')
-              held = true
-              beforeOpen?.('opened-session')
-              held = false
-            },
-          }
-        : name === 'conversation'
-          ? { input: { for(ctx: unknown) { return { setDraft(text: string) { drafts.push({ ctx, held, text, id: created.at(-1) ?? '' }) } } } } }
-          : undefined,
-  })
-  runtime.mount()
-  const connector = runtime.slots.entries('settings.section').find(entry => entry.id === 'connectors')
-  const injected = (connector?.inject as (() => { startPromptSession: (prompt: string) => Promise<void> }))()
-  await injected.startPromptSession('检查项目')
-  expect(connectWorkspace).not.toHaveBeenCalled()
-  expect(created).toEqual(['opened-session'])
-  expect(drafts).toEqual([{ ctx: 'main-view', held: true, text: '检查项目', id: 'opened-session' }])
-})
-
-test('连接器示例 Prompt 在双基线就绪前不选择临时工作区', async () => {
-  runtime = new ClientApplyHarness()
-  const connectWorkspace = vi.fn(async () => 'temporary-session')
-  Object.assign(runtime.ctx.workspaces.list, {
-    getSnapshot: () => ({
-      items: [{ workspaceId: 'temporary-workspace', sessionIds: [], createdAt: '2026-09-03T00:00:00.000Z' }],
-      phase: 'pending',
-    }),
-  })
-  Object.assign(runtime.ctx.sessions.list, {
-    getSnapshot: () => ({ current: undefined, byId: {}, phase: 'pending' }),
-  })
-  Object.assign(runtime.ctx, {
-    get: (name: string): unknown => name === 'connection'
-      ? { api: { host: { openPath: async () => ({ result: { ok: true, value: undefined } }) } } }
-      : name === 'uiWorkspace' ? { connectWorkspace } : name === 'conversation' ? {} : undefined,
-  })
-  runtime.mount()
-  const connector = runtime.slots.entries('settings.section').find(entry => entry.id === 'connectors')
-  expect(connector).toBeDefined()
-  const injected = (connector?.inject as (() => { startPromptSession: (prompt: string) => Promise<void> }))()
-
-  await expect(injected.startPromptSession('检查项目')).rejects.toThrow('connectors.workspacesLoading')
-  expect(connectWorkspace).not.toHaveBeenCalled()
 })
 
 test('侧栏替换以更低优先级接管工作区树，并保留 footer action 子插槽', async () => {
@@ -469,54 +346,6 @@ test('任务看板等插件面板不再出现在侧栏，扩展入口收回设�
     container.remove()
   }
 })
-
-test('连接器设置页嵌入可用的市场并只接受该 iframe 的 Prompt 消息', async () => {
-  const container = document.createElement('div')
-  document.body.appendChild(container)
-  const root = createRoot(container)
-  const startPromptSession = vi.fn(async () => {})
-  const fetchMock = vi.fn(async () => new Response(null, { status: 200 }))
-  vi.stubGlobal('fetch', fetchMock)
-  const sessionStore = {
-    getSnapshot: () => ({ current: undefined }),
-    subscribe: () => () => {},
-  }
-  try {
-    await act(async () => {
-      root.render(createElement(ConnectorsSection, {
-        sessionStore,
-        startPromptSession,
-        t: ((key: string) => key) as never,
-      } as never))
-      await Promise.resolve()
-      await Promise.resolve()
-    })
-    const frame = container.querySelector<HTMLIFrameElement>('.dcu-connector-frame')
-    expect(frame).not.toBeNull()
-    expect(fetchMock).toHaveBeenCalledWith('/mcp-connector/ui/', expect.objectContaining({ method: 'GET', cache: 'no-store' }))
-
-    window.dispatchEvent(new MessageEvent('message', {
-      origin: 'https://untrusted.example',
-      source: frame?.contentWindow,
-      data: { type: 'mcp-connector:start-session', requestId: 'bad', prompt: 'ignore me' },
-    }))
-    await act(async () => {
-      window.dispatchEvent(new MessageEvent('message', {
-        origin: window.location.origin,
-        source: frame?.contentWindow,
-        data: { type: 'mcp-connector:start-session', requestId: 'good', prompt: 'Hello MCP' },
-      }))
-      await Promise.resolve()
-    })
-    expect(startPromptSession).toHaveBeenCalledTimes(1)
-    expect(startPromptSession).toHaveBeenCalledWith('Hello MCP')
-  } finally {
-    vi.unstubAllGlobals()
-    await act(async () => { root.unmount() })
-    container.remove()
-  }
-})
-
 
 test('全局搜索设置根条目可以打开新的设置触发器', async () => {
  Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })

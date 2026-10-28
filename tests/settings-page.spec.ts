@@ -226,7 +226,6 @@ test('设置导航由 UI 插件统一排序，各插件自带 order 不能插进
     { id: 'im-assistant', label: 'IM助理', order: 40 },
     { id: 'archived-sessions', label: '归档会话', order: 45 },
     { id: 'skills-manager', label: '技能', order: 17 },
-    { id: 'connectors', label: '连接器', order: 17 },
     { id: 'scheduled-tasks', label: '定时任务', order: 28 },
     { id: 'better-sidebar', label: '侧边卡片', order: 100 },
     { id: 'plugins', label: '内置插件', order: 15 },
@@ -236,7 +235,7 @@ test('设置导航由 UI 插件统一排序，各插件自带 order 不能插进
   ]
   expect(orderSettingsRows(scrambled).map(row => row.id)).toEqual([
     'account', 'general',
-    'models', 'agent-presets', 'plugins', 'plugin-config', 'agency-agents', 'skills-manager', 'connectors', 'scheduled-tasks', 'im-assistant',
+    'models', 'agent-presets', 'plugins', 'plugin-config', 'agency-agents', 'skills-manager', 'scheduled-tasks', 'im-assistant',
     'market', 'better-sidebar',
     'archived-sessions',
   ])

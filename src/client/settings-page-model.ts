@@ -5,7 +5,7 @@ export type SettingsGroup = 'personal' | 'integrations' | 'records'
 /** 已知分区的显示顺序由 UI 插件固定。各插件自带 order 只用于同组未知项之间。 */
 const SETTINGS_NAV: Record<SettingsGroup, readonly string[]> = {
   personal: ['account', 'general'],
-  integrations: ['models', 'agent-presets', 'plugins', 'plugin-config', 'agency-agents', 'skills-manager', 'connectors', 'scheduled-tasks', 'im-assistant'],
+  integrations: ['models', 'agent-presets', 'plugins', 'plugin-config', 'agency-agents', 'skills-manager', 'scheduled-tasks', 'im-assistant'],
   records: ['archived-sessions'],
 }
 

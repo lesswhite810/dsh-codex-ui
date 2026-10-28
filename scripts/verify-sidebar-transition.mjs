@@ -96,7 +96,7 @@ try {
     assert.equal(samples.moved.grid, '0px minmax(400px, 1fr) minmax(0px, 490px)', '拖拽中不得覆盖宿主网格')
   }
   const page = await browser.newPage()
-  await page.setContent('<style>*{box-sizing:border-box}</style><div id="frame" style="display:grid;height:700px;grid-template-columns:320px minmax(0px, 1fr) 0px"><div style="min-width:0;overflow:hidden"><aside class="dcu-root"><div class="dcu-expanded-shell"><nav class="dcu-menu"><button>扩展管理专家技能插件连接器</button></nav></div><div class="dcu-foot">设置与账户余额</div></aside></div><main></main><div></div><div data-side="sidebar"></div></div>')
+  await page.setContent('<style>*{box-sizing:border-box}</style><div id="frame" style="display:grid;height:700px;grid-template-columns:320px minmax(0px, 1fr) 0px"><div style="min-width:0;overflow:hidden"><aside class="dcu-root"><div class="dcu-expanded-shell"><nav class="dcu-menu"><button>扩展管理专家技能插件</button></nav></div><div class="dcu-foot">设置与账户余额</div></aside></div><main></main><div></div><div data-side="sidebar"></div></div>')
   await page.addStyleTag({ content: stylesheet })
   await page.addScriptTag({ content: implementation })
   const result = await page.evaluate(async () => {

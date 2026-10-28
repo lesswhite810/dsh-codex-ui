@@ -10,6 +10,7 @@ const expectedPaths = [
   '/api/dsh-codex-ui/connectors',
   '/api/dsh-codex-ui/capabilities',
   '/api/dsh-codex-ui/open-in-explorer',
+  '/api/dsh-codex-ui/preferences',
   '/api/dsh-codex-ui/session-move',
 ]
 const oldPrefix = '/api/michengai/codex-ui/'
@@ -117,7 +118,9 @@ try {
     [expectedPaths[0], 'GET'],
     [expectedPaths[1], 'GET'],
     [expectedPaths[2], 'POST'],
-    [expectedPaths[3], 'POST'],
+    [expectedPaths[3], 'GET'],
+    [expectedPaths[4], 'POST'],
+    ...expectedPaths.slice(5).map(path => [path, 'GET'] as const),
   ] as const) {
     const response = await invoke(path, method)
     assert.equal(response.status, 401, `${path} 必须拒绝未登录请求`)
@@ -127,17 +130,17 @@ try {
   assert.deepEqual((authenticatedRequests[0] as ReturnType<typeof createRequest>).headers, createRequest('GET').headers, 'Host、Origin 和其他请求头必须原样交给宿主认证')
   assert.equal((authenticatedRequests[0] as ReturnType<typeof createRequest>).url, expectedPaths[0])
 
-  const unauthorizedMove = await invoke(expectedPaths[3], 'POST')
+  const unauthorizedMove = await invoke(expectedPaths[4], 'POST')
   assert.deepEqual(JSON.parse(unauthorizedMove.body ?? '{}'), { ok: false, code: 'session-move/unauthorized', error: '请先登录 DSH。' })
 
   rejection = 403
   assert.equal((await invoke(expectedPaths[0], 'GET')).status, 403)
-  const forbiddenMove = await invoke(expectedPaths[3], 'POST')
+  const forbiddenMove = await invoke(expectedPaths[4], 'POST')
   assert.equal(JSON.parse(forbiddenMove.body ?? '{}').code, 'session-move/forbidden')
 
   connectionAvailable = false
   assert.equal((await invoke(expectedPaths[0], 'GET')).status, 503)
-  const unavailableMove = await invoke(expectedPaths[3], 'POST')
+  const unavailableMove = await invoke(expectedPaths[4], 'POST')
   assert.equal(JSON.parse(unavailableMove.body ?? '{}').code, 'session-move/service-unavailable')
   assert.equal(authenticationWarnings.length > 0, true, '认证服务缺失必须记录服务端诊断日志')
 
@@ -147,8 +150,8 @@ try {
   assert.match(authenticationWarnings.at(-1) ?? '', /认证/)
   authenticationError = undefined
   rejection = undefined
-  const accepted = await invoke(expectedPaths[0], 'GET')
-  assert.equal(accepted.status, 200, '宿主已认证的外部 Origin 不应再被旧 loopback-only 判断拒绝')
+  const saved = await invoke(expectedPaths[3], 'PUT', [JSON.stringify({ pinnedWorkspaceIds: [], workspaceGroups: [] })])
+  assert.equal(saved.status, 200, '宿主已认证的外部 Origin 不应再被旧 loopback-only 判断拒绝')
 
   // 使用锁文件中的真实宿主信任检查，仅将登录层固定为已登录，证明跨站拒绝不依赖 401。
   const hostContext = new Context()
@@ -165,7 +168,7 @@ try {
       { origin: 'null' },
       { host: 'evil.example', origin: 'https://evil.example' },
     ]) {
-      for (const [path, method] of [[`${expectedPaths[1]}?action=update-all`, 'POST'], [expectedPaths[3], 'POST'], [expectedPaths[2], 'POST']] as const) {
+      for (const [path, method] of [[`${expectedPaths[1]}?action=update-all`, 'POST'], [expectedPaths[3], 'PUT'], [expectedPaths[2], 'POST']] as const) {
         let bodyRead = false
         const response: ResponseRecorder = {
           writeHead(status) { response.status = status },

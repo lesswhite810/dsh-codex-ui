@@ -39,15 +39,15 @@ describe('统一排序线几何', () => {
     box('#a', 20, 30)
     expect(measureWorkspaceDropIndicator(root)).toBeDefined()
   })
-  it('相邻项目取中点，不使用固定上移4px', () => {
-    const { root, box } = fixture('<div class="dcu-wb-project-head" id="a"></div><div class="dcu-wb-project dcu-wb-drop" id="wrapper"><div class="dcu-wb-project-head" id="b"></div></div>')
-    box('#a', 20, 32); box('#wrapper', 64, 34); box('#b', 64, 32)
+  it('12px 分组间距取中点，不使用固定上移4px', () => {
+    const { root, box } = fixture('<div class="dcu-wb-collection-head" id="a"></div><div class="dcu-wb-group-order-drop"><div class="dcu-wb-collection-head" id="b"></div></div>')
+    box('#a', 20, 32); box('#b', 64, 32)
     expect(measureWorkspaceDropIndicator(root)?.top).toBe(58 - 4)
     expect(measureWorkspaceDropIndicator(root)?.left).toBe(14)
     expect(measureWorkspaceDropIndicator(root)?.width).toBe(228)
   })
-  it('首项目忽略外层padding，取分区标题底边和项目顶边', () => {
-    const { root, box } = fixture('<div class="dcu-wb-section-head" id="a"></div><div class="dcu-wb-drop" id="wrapper"><div class="dcu-wb-project-head" id="b"></div></div>')
+  it('首项目忽略外层padding，取分组底边和项目顶边', () => {
+    const { root, box } = fixture('<div class="dcu-wb-collection-head" id="a"></div><div class="dcu-wb-drop" id="wrapper"><div class="dcu-wb-project-head" id="b"></div></div>')
     box('#a', 20, 32); box('#wrapper', 52, 34); box('#b', 56, 30)
     expect(measureWorkspaceDropIndicator(root)?.top).toBe(54 - 4)
   })
@@ -68,6 +68,21 @@ describe('统一排序线几何', () => {
     box('#a', 20, 30); box('#hidden', 54, 30); box('#b', 50, 30)
     root.scrollTop = 100
     expect(measureWorkspaceDropIndicator(root)?.top).toBe(146)
+  })
+  it('置顶空槽及末尾槽使用槽内边界，不画到槽外', () => {
+    const { root, box } = fixture('<div class="dcu-wb-pin-start dcu-wb-drop" id="slot"></div>')
+    box('#slot', 20, 8)
+    expect(measureWorkspaceDropIndicator(root)?.top).toBe(20)
+  })
+  it('置顶空列表的占位行不能把插入线拽出槽外', () => {
+    const { root, box } = fixture('<div class="dcu-wb-section-head" id="head"></div><div class="dcu-wb-pin-start dcu-wb-drop" id="slot"></div><div class="dcu-wb-empty" id="empty"></div>')
+    box('#head', 0, 24); box('#slot', 24, 8); box('#empty', 24, 24)
+    expect(measureWorkspaceDropIndicator(root)?.top).toBe(24)
+  })
+  it('置顶末尾槽在最后一行下方时，插入线画在行下而不是穿题', () => {
+    const { root, box } = fixture('<div class="dcu-wb-section-head" id="head"></div><div class="dcu-wb-project-head" id="a"></div><div class="dcu-wb-project-head" id="b"></div><div class="dcu-wb-pin-end dcu-wb-drop" id="slot"></div>')
+    box('#head', 0, 24); box('#a', 24, 30); box('#b', 54, 30); box('#slot', 84, 8)
+    expect(measureWorkspaceDropIndicator(root)?.top).toBe(84)
   })
   it('取消落点隐藏蓝线，卸载取消刷新并移除绘制节点', () => {
     const { root } = fixture('')

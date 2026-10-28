@@ -4,9 +4,10 @@ import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import { MessageCircle } from 'lucide-react'
 import { NS } from './locales.ts'
 import { useHoverDispatch, useHoverValue } from './hover-shell.tsx'
+import { PinIcon } from './session-tree.tsx'
 
 /** 只订阅悬停值，避免工作区树随鼠标移动整树重绘。 */
-export function WorkspaceHoverCard({ t, onEditWorkspace }: { t: TranslateNS<typeof NS>; onEditWorkspace: (id: string, title: string) => void }) {
+export function WorkspaceHoverCard({ t, onEditWorkspace, onToggleWorkspacePin }: { t: TranslateNS<typeof NS>; onEditWorkspace: (id: string, title: string) => void; onToggleWorkspacePin: (id: string) => void }) {
   const hoverTip = useHoverValue()
   const { keepTip, hideTip, dismissTip } = useHoverDispatch()
   useEffect(() => {
@@ -30,7 +31,9 @@ export function WorkspaceHoverCard({ t, onEditWorkspace }: { t: TranslateNS<type
     <div className="dcu-wb-tip-title">
       {workspace && <span className="dcu-wb-folder"><IconFolderCloseMedium size={16} /></span>}
       <span className="dcu-wb-tip-title-main">{hoverTip.title}</span>
-      {hoverTip.time !== undefined && <span className="dcu-wb-tip-time">{hoverTip.time}</span>}
+      {workspaceId !== undefined
+        ? <button type="button" className="dcu-wb-tip-pin" aria-label={t(hoverTip.pinned === true ? 'workspace.unpin' : 'workspace.pin')} onClick={() => { onToggleWorkspacePin(workspaceId); dismissTip() }}><PinIcon /></button>
+        : hoverTip.time !== undefined && <span className="dcu-wb-tip-time">{hoverTip.time}</span>}
     </div>
     {workspace && hoverTip.count !== undefined && <div className="dcu-wb-tip-meta"><MessageCircle aria-hidden="true" size={16} strokeWidth={1.5} /><span>{taskSummary}</span></div>}
     {workspace && hoverTip.path !== undefined && hoverTip.path !== '' && <div className="dcu-wb-tip-row dcu-wb-tip-path"><span className="dcu-wb-folder"><IconFolderCloseMedium size={16} /></span><span className="dcu-wb-tip-path-copy">{hoverTip.path}</span></div>}

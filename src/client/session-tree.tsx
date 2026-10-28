@@ -12,10 +12,14 @@ import {
   IconTrashOutlineMedium,
 } from './host-icons.ts'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
-import { Archive as LucideArchiveIcon, Eye, EyeOff } from 'lucide-react'
+import { Archive as LucideArchiveIcon, Eye, EyeOff, Pin as LucidePinIcon } from 'lucide-react'
 import { NS } from './locales.ts'
 import type { PendingInteractionKind } from './session-pending.ts'
 import { sessionTitleLine, titleOverflowPx, titleScrollDurationMs } from './session-title-scroll.ts'
+
+export function PinIcon() {
+  return <LucidePinIcon aria-hidden="true" size={16} strokeWidth={1.5} />
+}
 
 export function QuickArchiveIcon() {
   return <LucideArchiveIcon aria-hidden="true" size={16} strokeWidth={1.5} />

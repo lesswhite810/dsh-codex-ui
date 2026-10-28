@@ -18,6 +18,8 @@ assert.match(settings, /\.dcu-settings-trigger-content\{[^}]*grid-template-colum
 assert.match(settings, /\.dcu-settings-trigger\[data-wide=false\] \.dcu-settings-trigger-content\{grid-template-columns:16px;justify-content:center\}/, '窄轨设置图标必须独立居中')
 assert.match(settingsPage, /createPortal\([\s\S]*data-dcu-settings-page[\s\S]*document\.body\)/, '设置页必须 portal 到 document.body，避免收缩窄轨的 containing block 困住全屏页')
 assert.match(settings, /body:has\(\.dcu-settings-page\) \.dcu-root/, '透明设置页隔离必须覆盖 portal 到 body 后的侧栏根')
+assert.ok(settings.includes('--sp-bg:var(--dsw-alias-bg-base,#fff)'), '设置页背景必须沿用 DSH 背景变量，不得写死浅色')
+assert.ok(!settings.includes('--sp-bg:#') && !settings.includes('rgba(255,255,255,.18)') && !settings.includes('rgba(20,23,22,.18)'), '设置页不得写死背景色或叠加自定义半透明膜')
 
 assert.doesNotMatch(sidebar, /--dsh-chat-content-width:\s*800px/, '会话内容列必须保留宿主自适应和拖拽宽度')
 assert.match(sidebar, /--dsh-composer-card-max-width:calc\(var\(--dsh-chat-content-width\) \+ 32px\)/, '输入卡片必须继续从宿主会话宽度轴派生')

@@ -38,21 +38,7 @@
 
 ## 界面预览
 
-浅色主题：工作区会话树、新建会话建议与底部输入框。
-
-![浅色主题新建会话页](assets/screenshots/conversation-light.png)
-
-深色主题：定时任务总览与新建会话页。
-
-![深色主题新建会话页](assets/screenshots/conversation.png)
-
-常规设置：浅色主题下的独立设置页与分区导航。
-
-![浅色主题常规设置页](assets/screenshots/settings-general-light.png)
-
-会话菜单：重命名、未读、归档、派生、复制和删除。
-
-![会话菜单](assets/screenshots/session-menu.png)
+界面截图不再随仓库分发，以免与已发布版本不一致。
 
 ## 前置条件
 

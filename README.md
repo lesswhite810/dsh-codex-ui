@@ -38,21 +38,7 @@ Host compatibility: Full DeepSeek Harness `0.2.x` line (`>=0.2.0-rc.1 <0.3.0-0`)
 
 ## Screenshots
 
-Light theme: workspace tree, new conversation suggestions, and bottom composer.
-
-![Light theme new conversation](assets/screenshots/conversation-light.png)
-
-Dark theme: scheduled task overview and new conversation page.
-
-![Dark theme new conversation](assets/screenshots/conversation.png)
-
-General settings: dedicated settings page with section navigation in the light theme.
-
-![Light theme general settings](assets/screenshots/settings-general-light.png)
-
-Conversation menu: rename, unread, archive, fork, copy, and delete.
-
-![Conversation menu](assets/screenshots/session-menu.png)
+Screenshots are kept out of the repository so they always match the shipped build.
 
 ## Prerequisites
 

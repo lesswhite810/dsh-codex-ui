@@ -7,13 +7,11 @@ import { hostServices } from './host-services.ts'
 import { ForegroundExplorer } from './native-explorer.ts'
 import { moveSessionToWorkspace, SessionMoveError } from './session-migration.ts'
 import { registerOnboardingSettings } from './onboarding-settings.ts'
-import { parsePinnedWorkspaceIds, readWorkspacePreferences, WORKSPACE_PREFERENCES_VERSION, writeWorkspacePreferences } from './workspace-preferences.ts'
 
 const capabilitiesEndpoint = CODEX_UI_API_ENDPOINTS.capabilities
 const explorerEndpoint = CODEX_UI_API_ENDPOINTS.openInExplorer
-const preferencesEndpoint = CODEX_UI_API_ENDPOINTS.preferences
 const sessionMoveEndpoint = CODEX_UI_API_ENDPOINTS.sessionMove
-const maxPreferencesBodyBytes = 32 * 1024
+const maxRequestBodyBytes = 32 * 1024
 
 type HostRequest = {
   method?: string
@@ -31,8 +29,8 @@ function headerValue(headers: Record<string, string | string[] | undefined>, nam
 
 export class RequestBodyTooLargeError extends Error {}
 
-/** 有界读取 Node HTTP body；偏好接口只接受很小的 JSON。 */
-export async function readRequestBody(request: HostRequest, maxBytes = maxPreferencesBodyBytes): Promise<string> {
+/** 有界读取 Node HTTP body；业务接口只接受很小的 JSON。 */
+export async function readRequestBody(request: HostRequest, maxBytes = maxRequestBodyBytes): Promise<string> {
   const declared = Number(headerValue(request.headers ?? {}, 'content-length'))
   if (Number.isFinite(declared) && declared > maxBytes) throw new RequestBodyTooLargeError('请求体过大。')
   if (request[Symbol.asyncIterator] === undefined) return ''
@@ -127,7 +125,7 @@ function sessionMoveAuthenticationError(status: AuthenticationStatus, error: str
   return { ok: false, code, error }
 }
 
-/** 注册业务 REST 端点：运行时能力、置顶偏好、会话迁移与资源管理器打开。 */
+/** 注册业务 REST 端点：运行时能力、会话迁移与资源管理器打开。 */
 export function apply(ctx: Context): void {
   // 原设置壳停用后，继续登记引导设置，但不加载可能被向上解析到的旧版 settings 包。
   registerOnboardingSettings(ctx)
@@ -153,51 +151,6 @@ export function apply(ctx: Context): void {
           ctx.logger.warn('capabilities endpoint failed: %s', error)
           response.writeHead(503, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
           response.end(JSON.stringify({ error: '运行时能力探测暂不可用。' }))
-        }
-      },
-    })
-    const disposePreferences = host.webServer.register({
-      kind: 'exact',
-      path: preferencesEndpoint,
-      handler: async (request, response) => {
-        if (!authenticateBusinessRequest(ctx, request, response)) return
-        try {
-          if (request.method === 'GET' || request.method === 'HEAD') {
-            const preferences = await readWorkspacePreferences()
-            response.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
-            response.end(request.method === 'HEAD' ? undefined : JSON.stringify(preferences))
-            return
-          }
-          if (request.method === 'PUT') {
-            const body = JSON.parse(await readRequestBody(request)) as unknown
-            const record = body !== null && typeof body === 'object' ? body as Record<string, unknown> : undefined
-            const pinnedWorkspaceIds = record === undefined ? undefined : parsePinnedWorkspaceIds(record.pinnedWorkspaceIds)
-            if (pinnedWorkspaceIds === undefined) {
-              response.writeHead(400, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
-              response.end(JSON.stringify({ error: '置顶偏好格式无效。' }))
-              return
-            }
-            await writeWorkspacePreferences(pinnedWorkspaceIds)
-            response.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
-            response.end(JSON.stringify({ version: WORKSPACE_PREFERENCES_VERSION, pinnedWorkspaceIds, exists: true }))
-            return
-          }
-          response.writeHead(405, { allow: 'GET, HEAD, PUT' })
-          response.end()
-        } catch (error) {
-          if (error instanceof RequestBodyTooLargeError) {
-            response.writeHead(413, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
-            response.end(JSON.stringify({ error: '请求体过大。' }))
-            return
-          }
-          if (error instanceof SyntaxError) {
-            response.writeHead(400, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
-            response.end(JSON.stringify({ error: '置顶偏好格式无效。' }))
-            return
-          }
-          ctx.logger.warn('preferences endpoint failed: %s', error)
-          response.writeHead(503, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
-          response.end(JSON.stringify({ error: '置顶偏好暂不可用。' }))
         }
       },
     })
@@ -271,7 +224,6 @@ export function apply(ctx: Context): void {
       foregroundExplorer.dispose()
       disposeCapabilities()
       disposeExplorer()
-      disposePreferences()
       disposeSessionMove()
     }
   }, 'michengai-codex-ui: catalogs')

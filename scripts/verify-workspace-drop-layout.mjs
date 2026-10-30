@@ -95,20 +95,19 @@ const verify = async () => {
     body.dataset.open = 'true'
     results.push({ name: '空状态排版', width, theme, error: 0, scrollError: 0 })
   }
-  for (const layout of ['pinned', 'flat']) {
+  {
     const host = document.createElement('div')
     host.className = 'dark'
     host.style.cssText = 'width:275px;display:inline-block;vertical-align:top;margin:8px'
-    const items = '<div class="dcu-wb-project" id="chat-project"><div class="dcu-wb-project-head">dsh-im-connect</div><div class="dcu-wb-project-body" data-open="true"><div class="dcu-wb-nochat">暂无聊天</div></div></div><div class="dcu-wb-project" id="next-project"><div class="dcu-wb-project-head">dsh-automation</div></div>'
-    host.innerHTML = `<h3>${layout}</h3><div class="dcu-wb"><div class="${layout === 'pinned' ? 'dcu-wb-pinned-list' : 'dcu-wb-collections'}" data-open="true">${items}</div></div>`
+    host.innerHTML = '<h3>项目空聊天</h3><div class="dcu-wb"><div class="dcu-wb-collections" data-open="true"><div class="dcu-wb-project" id="chat-project"><div class="dcu-wb-project-head">dsh-im-connect</div><div class="dcu-wb-project-body" data-open="true"><div class="dcu-wb-nochat">暂无聊天</div></div></div><div class="dcu-wb-project" id="next-project"><div class="dcu-wb-project-head">dsh-automation</div></div></div></div>'
     document.body.append(host)
     const chat = host.querySelector('.dcu-wb-nochat')
     const style = getComputedStyle(chat)
     const lineTop = chat.getBoundingClientRect().top + parseFloat(style.paddingTop)
     const above = lineTop - host.querySelector('#chat-project>.dcu-wb-project-head').getBoundingClientRect().bottom
     const below = host.querySelector('#next-project>.dcu-wb-project-head').getBoundingClientRect().top - lineTop - parseFloat(style.lineHeight)
-    if (Math.abs(above - below) > 0.1) throw new Error(`暂无聊天 ${layout} 未居中: ${above}/${below}`)
-    results.push({ name: `暂无聊天-${layout}`, above, below, error: Math.abs(above - below), scrollError: 0 })
+    if (Math.abs(above - below) > 0.1) throw new Error(`暂无聊天 项目未居中: ${above}/${below}`)
+    results.push({ name: '暂无聊天-项目', above, below, error: Math.abs(above - below), scrollError: 0 })
   }
   {
     const host = document.createElement('div')

@@ -7,7 +7,6 @@ import { ChannelBrowser } from '../src/client/ChannelBrowser.tsx'
 import { CodexWorkspaceBrowser } from '../src/client/CodexWorkspaceBrowser.tsx'
 import { ScheduleBrowser } from '../src/client/ScheduleBrowser.tsx'
 import { createWorkspaceShortcutSource } from '../src/client/workspace-shortcuts.ts'
-import { PINNED_WORKSPACES_STORAGE_KEY } from '../src/client/pinned-workspaces.ts'
 import type { PendingInteractionSnapshot, UseSessionPendingInteraction, UseSessionStatus } from '../src/client/session-pending.ts'
 import type { SessionStatusSnapshot } from '../src/client/session-host.ts'
 import type { PendingInteractionKind } from '../src/client/session-pending.ts'
@@ -148,10 +147,9 @@ test('添加工作区按钮随官方入口启停和快捷键目录实时更新',
   }
 })
 
-test('跨置顶与项目悬停不依赖 dragleave，结束清空所有落点', async () => {
+test('项目之间拖动时只保留一个落点，结束清空所有标记', async () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   const workspaces = { baselinesReady: true, archivedSessionIds: [], items: ['a', 'b', 'c'].map(id => ({ workspaceId: id, title: id, path: `D:/${id}`, sessionIds: [] })) }
-  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ exists: true, pinnedWorkspaceIds: ['a', 'c'] }))))
   const view = await render(createElement(CodexWorkspaceBrowser, {
     ...sessionActions, wide: true, useSessions: createSessionStore(createSession('unused', 'unused', undefined)),
     useSessionPendingInteraction: useEmptyPendingInteractions,
@@ -159,89 +157,21 @@ test('跨置顶与项目悬停不依赖 dragleave，结束清空所有落点', a
     deleteWorkspace: vi.fn(), insertSessionBefore: vi.fn(), insertWorkspaceBefore: vi.fn(), openPath: vi.fn(), renameWorkspace: vi.fn(), startSession: vi.fn(),
   } as never))
   try {
-    const pinned = view.container.querySelectorAll('.dcu-wb-pinned-list .dcu-wb-project-head')
-    const regular = view.container.querySelector<HTMLElement>('.dcu-wb-collections .dcu-wb-project')!
+    const heads = view.container.querySelectorAll<HTMLElement>('.dcu-wb-collections .dcu-wb-project-head')
+    const projects = view.container.querySelectorAll<HTMLElement>('.dcu-wb-collections .dcu-wb-project')
     const transfer = createDataTransfer()
     const markers = () => view.container.querySelectorAll('.dcu-wb-drop')
-    await act(async () => { dispatchDrag(pinned[1]!, 'dragstart', transfer) })
-    await act(async () => { dispatchDrag(pinned[0]!, 'dragover', transfer) })
+    await act(async () => { dispatchDrag(heads[2]!, 'dragstart', transfer) })
+    await act(async () => { dispatchDrag(projects[0]!, 'dragover', transfer) })
     expect(markers()).toHaveLength(1)
-    await act(async () => { dispatchDrag(regular, 'dragover', transfer) })
+    expect(projects[0]!.classList.contains('dcu-wb-drop')).toBe(true)
+    await act(async () => { dispatchDrag(projects[1]!, 'dragover', transfer) })
     expect(markers()).toHaveLength(1)
-    expect(regular.classList.contains('dcu-wb-drop')).toBe(true)
-    await act(async () => { dispatchDrag(pinned[0]!, 'dragover', transfer) })
-    expect(markers()).toHaveLength(1)
-    expect(regular.classList.contains('dcu-wb-drop')).toBe(false)
-    await act(async () => { dispatchDrag(pinned[1]!, 'dragend', transfer) })
+    expect(projects[1]!.classList.contains('dcu-wb-drop')).toBe(true)
+    expect(projects[0]!.classList.contains('dcu-wb-drop')).toBe(false)
+    await act(async () => { dispatchDrag(heads[2]!, 'dragend', transfer) })
     expect(markers()).toHaveLength(0)
     expect(view.container.querySelector('.dcu-wb-drop-indicator')).toBeNull()
-  } finally { await view.dispose() }
-})
-
-test('拖动项目时置顶末尾落点不得把项目分区顶下去', async () => {
-  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
-  const workspaces = { baselinesReady: true, archivedSessionIds: [], items: ['pinned', 'loose'].map(id => ({ workspaceId: id, title: id, path: `D:/${id}`, sessionIds: [] })) }
-  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ exists: true, pinnedWorkspaceIds: ['pinned'] }))))
-  const view = await render(createElement(CodexWorkspaceBrowser, {
-    ...sessionActions, wide: true, useSessions: createSessionStore(createSession('unused', 'unused', undefined)),
-    useSessionPendingInteraction: useEmptyPendingInteractions,
-    useWorkspaces: (selector: (snapshot: typeof workspaces) => unknown) => selector(workspaces), t,
-    deleteWorkspace: vi.fn(), insertSessionBefore: vi.fn(), insertWorkspaceBefore: vi.fn(), openPath: vi.fn(), renameWorkspace: vi.fn(), startSession: vi.fn(),
-  } as never))
-  try {
-    await act(async () => { await Promise.resolve(); await Promise.resolve() })
-    const projects = view.container.querySelector<HTMLElement>('.dcu-wb-section[aria-label="workspace.projects"]')!
-    const before = projects.offsetTop
-    const transfer = createDataTransfer()
-    await act(async () => { dispatchDrag(view.container.querySelectorAll('.dcu-wb-project-head')[1]!, 'dragstart', transfer) })
-    const pinEnd = view.container.querySelector<HTMLElement>('.dcu-wb-pin-end')!
-    expect(pinEnd).not.toBeNull()
-    expect(getComputedStyle(pinEnd).position).toBe('absolute')
-    expect(projects.offsetTop).toBe(before)
-  } finally { await view.dispose() }
-})
-
-test('空置顶在 dragleave 清掉蓝线后仍能接收项目', async () => {
-  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
-  const workspaces = { baselinesReady: true, archivedSessionIds: [], items: ['alpha', 'beta'].map(id => ({ workspaceId: id, title: id, path: `D:/${id}`, sessionIds: [] })) }
-  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ exists: true, pinnedWorkspaceIds: [] }))))
-  const view = await render(createElement(CodexWorkspaceBrowser, {
-    ...sessionActions, wide: true, useSessions: createSessionStore(createSession('unused', 'unused', undefined)),
-    useSessionPendingInteraction: useEmptyPendingInteractions,
-    useWorkspaces: (selector: (snapshot: typeof workspaces) => unknown) => selector(workspaces), t,
-    deleteWorkspace: vi.fn(), insertSessionBefore: vi.fn(), insertWorkspaceBefore: vi.fn(), openPath: vi.fn(), renameWorkspace: vi.fn(), startSession: vi.fn(),
-  } as never))
-  try {
-    await act(async () => { await Promise.resolve(); await Promise.resolve() })
-    const project = view.container.querySelector('.dcu-wb-project-head')!
-    const pinned = view.container.querySelector('.dcu-wb-section[aria-label="workspace.pinned"]')!
-    const empty = pinned.querySelector('.dcu-wb-empty')!
-    const transfer = createDataTransfer()
-    await act(async () => { dispatchDrag(project, 'dragstart', transfer) })
-    await act(async () => { dispatchDrag(empty, 'dragover', transfer) })
-    await act(async () => { dispatchDrag(pinned, 'dragleave', transfer, null) })
-    await act(async () => { dispatchDrag(empty, 'drop', transfer) })
-    expect(view.container.querySelector('.dcu-wb-pinned-list .dcu-wb-project-title')?.textContent).toBe('alpha')
-    expect(view.container.querySelectorAll('.dcu-wb-section[aria-label="workspace.projects"] .dcu-wb-project-title')).toHaveLength(1)
-  } finally { await view.dispose() }
-})
-
-test.each([401, 403, 503])('偏好读取 HTTP %s 保留本地置顶并提示尚未同步', async status => {
-  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
-  window.localStorage.setItem(PINNED_WORKSPACES_STORAGE_KEY, JSON.stringify(['cached']))
-  vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status })))
-  const workspaces = { baselinesReady: true, archivedSessionIds: [], items: [{ workspaceId: 'cached', title: '本地项目', path: 'D:/cached', sessionIds: [] }] }
-  const view = await render(createElement(CodexWorkspaceBrowser, {
-    ...sessionActions, wide: true, useSessions: createSessionStore(createSession('unused', 'unused', undefined)),
-    useSessionPendingInteraction: useEmptyPendingInteractions,
-    useWorkspaces: (selector: (snapshot: typeof workspaces) => unknown) => selector(workspaces), t,
-    deleteWorkspace: vi.fn(), insertSessionBefore: vi.fn(), insertWorkspaceBefore: vi.fn(), openPath: vi.fn(), renameWorkspace: vi.fn(), startSession: vi.fn(),
-  } as never))
-  try {
-    expect(view.container.querySelector('.dcu-wb-pinned-list .dcu-wb-project-title')?.textContent).toBe('本地项目')
-    const message = view.container.querySelector('.dcu-wb-error[role="status"]')?.textContent
-    expect(message).toContain('workspace.preferencesLocalOnly')
-    expect(message).toContain(status === 401 ? 'errors.unauthorized' : status === 403 ? 'errors.forbidden' : 'errors.serviceUnavailable')
   } finally { await view.dispose() }
 })
 
@@ -267,10 +197,6 @@ test('任务树从 SessionSummary 快照渲染等待回答状态', async () => {
     items: [{ workspaceId: 'workspace-1', title: '测试项目', path: 'D:\\Workspace\\test', sessionIds: [session.id] }],
   }
   const useWorkspaces = <T,>(selector: (snapshot: typeof workspaces) => T): T => selector(workspaces)
-  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ exists: true, pinnedWorkspaceIds: [] }), {
-    status: 200,
-    headers: { 'content-type': 'application/json' },
-  })))
 
   const view = await render(createElement(CodexWorkspaceBrowser, {
     ...sessionActions,
@@ -315,10 +241,6 @@ test('任务树把会话拖到其他项目时先确认，取消不迁移且确�
   const useWorkspaces = <T,>(selector: (snapshot: typeof workspaces) => T): T => selector(workspaces)
   const moveSession = vi.fn(async () => {})
   const insertSessionBefore = vi.fn(async () => {})
-  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ exists: true, pinnedWorkspaceIds: [] }), {
-    status: 200,
-    headers: { 'content-type': 'application/json' },
-  })))
 
   const view = await render(createElement(CodexWorkspaceBrowser, {
     ...sessionActions,
@@ -430,10 +352,6 @@ test('任务树从待处理交互 Store 渲染等待审批状态', async () => {
     items: [{ workspaceId: 'workspace-store-1', title: 'Store 测试项目', path: 'D:\\Workspace\\store-test', sessionIds: [session.id] }],
   }
   const useWorkspaces = <T,>(selector: (snapshot: typeof workspaces) => T): T => selector(workspaces)
-  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ exists: true, pinnedWorkspaceIds: [] }), {
-    status: 200,
-    headers: { 'content-type': 'application/json' },
-  })))
 
   const view = await render(createElement(CodexWorkspaceBrowser, {
     ...sessionActions,
@@ -490,10 +408,6 @@ test('任务树在没有旧 pending Store 时从 SessionStatus 渲染等待审�
     items: [{ workspaceId: 'workspace-status-1', title: 'Status 测试项目', path: 'D:\\Workspace\\status-test', sessionIds: [session.id] }],
   }
   const useWorkspaces = <T,>(selector: (snapshot: typeof workspaces) => T): T => selector(workspaces)
-  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ exists: true, pinnedWorkspaceIds: [] }), {
-    status: 200,
-    headers: { 'content-type': 'application/json' },
-  })))
 
   const view = await render(createElement(CodexWorkspaceBrowser, {
     ...sessionActions,

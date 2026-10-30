@@ -30,7 +30,7 @@ Host compatibility: Full DeepSeek Harness `0.2.x` line (`>=0.2.0-rc.1 <0.3.0-0`)
 
 ## What you can do
 
-- **Organize projects and conversations**: expand or collapse projects, drag to reorder, pin frequently used projects, and see unread and running indicators.
+- **Organize projects and conversations**: expand or collapse projects, drag to reorder, and see unread and running indicators.
 - **Find things quickly**: search for conversations, settings, and quick actions from the header.
 - **Manage everyday tasks**: rename, archive, or fork conversations, and open project folders from their menus.
 - **Revisit long chats**: select a turn marker to jump directly to the corresponding question.
@@ -50,7 +50,7 @@ General settings: dedicated settings page with section navigation in the light t
 
 ![Light theme general settings](assets/screenshots/settings-general-light.png)
 
-Conversation menu: rename, pin, unread, archive, fork, copy, and delete.
+Conversation menu: rename, unread, archive, fork, copy, and delete.
 
 ![Conversation menu](assets/screenshots/session-menu.png)
 
@@ -109,16 +109,15 @@ Open DSH Web. The left navigation is rendered by this plugin.
 | Start a conversation | Select **New task**, or use a workspace **+** / **New conversation** action. |
 | Find a conversation or setting | Use the header search field and choose a session, Settings page, or quick action. |
 | Collapse the sidebar | Use the header panel button. The expand control stays on the collapsed rail. |
-| Pin a workspace | Drag it into **Pinned**, or use **Pin project** in the project menu. |
-| Manage a conversation | Open the conversation menu to rename, pin, mark unread, archive, fork, copy, or delete. |
+| Manage a conversation | Open the conversation menu to rename, mark unread, archive, fork, copy, or delete. |
 | Reuse input | Press Up/Down in an empty composer to recall text submitted in the current workspace. |
 | Jump between turns | Use the turn marks on the left of the current conversation. |
 
 ## FAQ
 
-### Do pinned projects and unread markers persist?
+### Do unread markers persist?
 
-Pinned projects are saved in your DSH configuration and survive restarts. Unread markers are stored only in the current browser and do not sync across browsers.
+Unread markers are stored only in the current browser and do not sync across browsers.
 
 ### Why is my earlier input missing?
 

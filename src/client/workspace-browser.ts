@@ -138,46 +138,7 @@ export function reorderDropBeforeId(
   return reordered.every((id, index) => id === ids[index]) ? null : beforeId
 }
 
-export type PinnedHeaderDropIndicator =
-  | { kind: 'workspace', workspaceId: string }
-  | { kind: 'empty' }
-
-/**
- * 置顶标题区与首项目的上半区都表示“插到第一项之前”，因此必须共用同一条指示线。
- * 非空列表把指示线贴到首项目顶部；空列表才使用独立的起始占位线。
- */
-export function pinnedHeaderDropIndicator(ids: readonly string[]): PinnedHeaderDropIndicator {
-  const workspaceId = ids[0]
-  return workspaceId === undefined ? { kind: 'empty' } : { kind: 'workspace', workspaceId }
-}
-
-/**
- * 空置顶没有项目行可自行计算落点，松手时 dragleave 又常把 relatedTarget 置空并清掉蓝线。
- * 只要这次 drop 发生在置顶区，空列表也必须把项目置顶。
- */
-export function resolvePinnedSectionDrop(
-  draggedWorkspace: string | undefined,
-  target: { zone: string; beforeId?: string } | undefined,
-  pinnedEmpty: boolean,
-): { id: string; beforeId?: string } | undefined {
-  if (draggedWorkspace === undefined) return undefined
-  if (target?.zone === 'pinned') return { id: draggedWorkspace, beforeId: target.beforeId }
-  return pinnedEmpty ? { id: draggedWorkspace } : undefined
-}
-
-/** 按指定 id 顺序取出对应项；未出现在 ids 中的项丢弃。 */
-export function orderByIds<T>(items: readonly T[], ids: readonly string[], idOf: (item: T) => string): T[] {
-  const byId = new Map(items.map(item => [idOf(item), item]))
-  return ids.flatMap(id => {
-    const item = byId.get(id)
-    return item === undefined ? [] : [item]
-  })
-}
-
-type SessionMoveExpansionTarget = {
-  workspaceId: string
-  pinned: boolean
-}
+type SessionMoveExpansionTarget = { workspaceId: string }
 
 /** 展开移动目标的全部父级，保证页面重载并选中会话后该行仍然可见。 */
 export function expandedForSessionMove(
@@ -185,11 +146,6 @@ export function expandedForSessionMove(
   target: SessionMoveExpansionTarget,
 ): Record<string, boolean> {
   const next = { ...current }
-  if (target.pinned) {
-    next['section:pinned'] = true
-    next[`pin:${target.workspaceId}`] = true
-    return next
-  }
   next['section:projects'] = true
   next[target.workspaceId] = true
   return next
@@ -197,7 +153,6 @@ export function expandedForSessionMove(
 
 export type CurrentSessionExpansionTree = {
   workspaces: readonly { workspaceId: string; sessionIds: readonly string[] }[]
-  pinnedWorkspaceIds: readonly string[]
   recentIds: readonly string[]
 }
 
@@ -222,10 +177,7 @@ export function expandedForCurrentSession(
   if (sessionId === undefined || sessionId === '') return { ...current }
   const workspaceId = workspaceIdForSession(tree.workspaces, sessionId)
   if (workspaceId !== undefined) {
-    return expandedForSessionMove(current, {
-      workspaceId: String(workspaceId),
-      pinned: tree.pinnedWorkspaceIds.includes(String(workspaceId)),
-    })
+    return expandedForSessionMove(current, { workspaceId: String(workspaceId) })
   }
   if (tree.recentIds.includes(sessionId)) return { ...current, 'section:recent': true }
   return { ...current }

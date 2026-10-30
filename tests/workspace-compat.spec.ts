@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
-import { recentWorkspaceId, workspaceBaselinesReady } from '../src/client/workspace-compat.ts'
+import { recentWorkspaceId } from '../src/client/workspace-compat.ts'
 
 const sessionId = (value: string): SessionId => value as SessionId
 const workspaceId = (value: string): WorkspaceId => value as WorkspaceId
@@ -30,13 +30,4 @@ test('无有效会话时按工作区创建时间选择，空列表返回 undefin
 
   expect(recentWorkspaceId(workspaces, {})).toBe('workspace-new')
   expect(recentWorkspaceId([], {})).toBeUndefined()
-})
-
-test('基线就绪兼容旧版聚合字段和新版双 phase', () => {
-  expect(workspaceBaselinesReady({ baselinesReady: true }, {})).toBe(true)
-  expect(workspaceBaselinesReady({ baselinesReady: false, phase: 'ready' }, { phase: 'ready' })).toBe(false)
-  expect(workspaceBaselinesReady({ phase: 'ready' }, { phase: 'ready' })).toBe(true)
-  expect(workspaceBaselinesReady({ phase: 'pending' }, { phase: 'ready' })).toBe(false)
-  expect(workspaceBaselinesReady({ phase: 'ready' }, { phase: 'pending' })).toBe(false)
-  expect(workspaceBaselinesReady({ phase: 'ready' }, {})).toBe(false)
 })

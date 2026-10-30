@@ -14,10 +14,9 @@ import {
   IconTrashOutlineMedium,
 } from './host-icons.ts'
 import { NS } from './locales.ts'
-import { PinIcon, QuickArchiveIcon, SessionRow, SessionRowTitle, SessionState, SessionTime, pointerMenuRect, sessionMenuItems } from './session-tree.tsx'
+import { QuickArchiveIcon, SessionRow, SessionRowTitle, SessionState, SessionTime, pointerMenuRect, sessionMenuItems } from './session-tree.tsx'
 import { sessionIsRunning, sessionRowUnread, sessionRunningFlags, visibleSelectedSessionId } from './session-host.ts'
 import { legacyPendingInteraction, pendingInteractionForSession, useHostPendingInteractions, useHostSessionStatus, type UseSessionPendingInteraction, type UseSessionStatus } from './session-pending.ts'
-import { insertPinnedWorkspace, prunePinnedWorkspaceIds, readHostWorkspacePreferences, readPinnedWorkspaceIds, resolvePinnedWorkspaceHydration, savePinnedWorkspaceIds, togglePinnedWorkspace, writeHostWorkspacePreferences } from './pinned-workspaces.ts'
 import {
   readSessionIds,
   SESSION_UNREAD_STORAGE_KEY,
@@ -30,11 +29,9 @@ import { useSharedNow } from './shared-now.ts'
 import { HEADER_PROJECT_TIP_EVENT, HEADER_SESSION_MENU_EVENT, type HeaderAnchorDetail } from './conversation-header.ts'
 import { HoverShell, useHoverDispatch, type HoverCardTip } from './hover-shell.tsx'
 import { WorkspaceHoverCard } from './workspace-hover-card.tsx'
-import { collapseProjectSessionWindow, expandedForCurrentSession, expandedForSessionMove, moveBefore, nextProjectSessionWindow, orderByIds, pinnedHeaderDropIndicator, projectFolderPresentation, projectSessionWindow, readSessionDrag, readWorkspaceDrag, reorderDropBeforeId, resolvePinnedSectionDrop, sessionDropAction, sessionDropAfterRowId, ungroupedSessionIds, visibleSessionIds, writeSessionDrag, writeWorkspaceDrag, type ProjectSessionWindowState } from './workspace-browser.ts'
+import { collapseProjectSessionWindow, expandedForCurrentSession, expandedForSessionMove, moveBefore, nextProjectSessionWindow, projectFolderPresentation, projectSessionWindow, readSessionDrag, readWorkspaceDrag, reorderDropBeforeId, sessionDropAction, sessionDropAfterRowId, ungroupedSessionIds, visibleSessionIds, writeSessionDrag, writeWorkspaceDrag, type ProjectSessionWindowState } from './workspace-browser.ts'
 import { browserStorage, readTreeExpansionState, WORKSPACE_EXPANSION_STORAGE_KEY, writeTreeExpansionState } from './tree-expansion.ts'
-import { workspaceBaselinesReady } from './workspace-compat.ts'
 import { userErrorText } from './user-error.ts'
-import { businessRequestErrorKey } from './business-request-error.ts'
 import { moveSessionActionId, parseMoveSessionActionId, sessionMoveTargets } from './session-move.ts'
 import { sessionTitleLine } from './session-title-scroll.ts'
 import { archiveWorkspaceSessions } from './workspace-archive.ts'
@@ -70,7 +67,7 @@ type RenameTarget = { id: string; kind: 'workspace' | 'session'; title: string }
 type DeleteTarget = { id: string; kind: 'workspace' | 'session'; title: string } | undefined
 type ArchiveWorkspaceTarget = { id: string; title: string; sessionIds: string[] } | undefined
 type SessionMoveTarget = { sessionId: string; sessionTitle: string; targetWorkspaceId: string; targetWorkspaceTitle: string; targetPath: string } | undefined
-type WorkspaceDropTarget = { zone: 'pinned' | 'projects'; beforeId?: string }
+type WorkspaceDropTarget = { beforeId?: string }
 type SessionDropTarget = { workspaceId: string; beforeId?: string; hoveredId?: string; ontoProject?: boolean; crossWorkspace?: boolean }
 
 const DISCLOSURE_EXIT_MS = 180
@@ -147,11 +144,6 @@ function useSectionDisclosureMotion(rootRef: RefObject<HTMLDivElement | null>) {
   })
 }
 
-function sameWorkspaceDropTarget(left: WorkspaceDropTarget | undefined, right: WorkspaceDropTarget | undefined): boolean {
-  if (left === undefined || right === undefined) return left === right
-  return left.zone === right.zone && left.beforeId === right.beforeId
-}
-
 const stylesheet = `
 .dcu-wb{--dcu-wb-inset:8px;display:flex;flex:1;min-height:0;flex-direction:column;padding:4px var(--dcu-wb-inset) 8px;color:var(--dcu-sidebar-primary)}
 .dcu-wb *{box-sizing:border-box}
@@ -166,7 +158,7 @@ const stylesheet = `
 .dcu-wb-project-head:hover,.dcu-wb-project-head.dcu-wb-menu-open,.dcu-wb-session:hover,.dcu-wb-session.dcu-wb-selected,.dcu-wb-session.dcu-wb-menu-open{background:var(--dcu-sidebar-hover)}.dcu-wb-project.dcu-wb-session-drop>.dcu-wb-project-head{border-radius:8px;background:color-mix(in srgb,var(--dsw-alias-state-business-primary) 9%,transparent);outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:-2px}.dcu-wb-project.dcu-wb-session-move-drop{border-radius:8px;background:color-mix(in srgb,var(--dsw-alias-state-business-primary) 9%,transparent);outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:-2px}.dcu-wb-project.dcu-wb-session-move-drop>.dcu-wb-project-head{background:transparent;outline:0}.dcu-wb-project-body>.dcu-wb-session:first-child,.dcu-wb-project-body>.dcu-wb-nochat:first-child{margin-top:4px}.dcu-wb-session+.dcu-wb-session{margin-top:2px}
 .dcu-wb-project-head[draggable=true],.dcu-wb-session[draggable=true]{cursor:grab}
 .dcu-wb-project-head[draggable=true]:active,.dcu-wb-session[draggable=true]:active{cursor:grabbing}
-.dcu-wb-section,.dcu-wb-section:focus,.dcu-wb-section:focus-visible,.dcu-wb-project-head:focus,.dcu-wb-session:focus{outline:0}.dcu-wb-pinned-list{position:relative}.dcu-wb-pin-end,.dcu-wb-pin-start{position:absolute;left:0;right:0;height:8px;z-index:2;pointer-events:none}.dcu-wb-pin-end.dcu-wb-drop,.dcu-wb-pin-start.dcu-wb-drop{pointer-events:auto}.dcu-wb-pin-start{top:0}.dcu-wb-pin-end{bottom:-8px}.dcu-wb-project.dcu-wb-drop::before,.dcu-wb-session.dcu-wb-drop::before,.dcu-wb-pin-end.dcu-wb-drop::before,.dcu-wb-pin-start.dcu-wb-drop::before{content:"";position:absolute;z-index:2;left:7px;right:8px;top:-8px;height:8px;pointer-events:none;background:radial-gradient(circle at 4px 50%,transparent 1.75px,var(--dsw-alias-state-business-primary) 2px 3.75px,transparent 4px),linear-gradient(var(--dsw-alias-state-business-primary),var(--dsw-alias-state-business-primary)) 10px 50%/calc(100% - 10px) 2px no-repeat}.dcu-wb-pin-start.dcu-wb-drop::before{top:0}.dcu-wb-pinned-list>.dcu-wb-project:first-child.dcu-wb-drop::before{top:-4px}.dcu-wb-project.dcu-wb-drop-after::before,.dcu-wb-session.dcu-wb-drop-after::before{top:auto;bottom:-8px}.dcu-wb-dragging{opacity:.28}.dcu-wb-drag-ghost{position:fixed;top:8px;left:-9999px;z-index:10040;display:flex;align-items:center;gap:8px;max-width:220px;height:30px;padding:0 10px;border:1px solid var(--dcu-sidebar-border);border-radius:8px;background:var(--dcu-sidebar-hover);box-shadow:var(--dsw-shadow-lv2);color:var(--dcu-sidebar-primary);font:14px/20px var(--dsw-font-family);white-space:nowrap;pointer-events:none}.dcu-wb-drag-ghost-icon{display:grid;place-items:center;flex:none;width:16px;height:16px;color:var(--dcu-sidebar-icon)}.dcu-wb-drag-ghost-icon svg{display:block;width:16px;height:16px}.dcu-wb-drag-ghost-title{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.dcu-wb-section,.dcu-wb-section:focus,.dcu-wb-section:focus-visible,.dcu-wb-project-head:focus,.dcu-wb-session:focus{outline:0}.dcu-wb-project.dcu-wb-drop::before,.dcu-wb-session.dcu-wb-drop::before{content:"";position:absolute;z-index:2;left:7px;right:8px;top:-8px;height:8px;pointer-events:none;background:radial-gradient(circle at 4px 50%,transparent 1.75px,var(--dsw-alias-state-business-primary) 2px 3.75px,transparent 4px),linear-gradient(var(--dsw-alias-state-business-primary),var(--dsw-alias-state-business-primary)) 10px 50%/calc(100% - 10px) 2px no-repeat}.dcu-wb-project.dcu-wb-drop-after::before,.dcu-wb-session.dcu-wb-drop-after::before{top:auto;bottom:-8px}.dcu-wb-dragging{opacity:.28}.dcu-wb-drag-ghost{position:fixed;top:8px;left:-9999px;z-index:10040;display:flex;align-items:center;gap:8px;max-width:220px;height:30px;padding:0 10px;border:1px solid var(--dcu-sidebar-border);border-radius:8px;background:var(--dcu-sidebar-hover);box-shadow:var(--dsw-shadow-lv2);color:var(--dcu-sidebar-primary);font:14px/20px var(--dsw-font-family);white-space:nowrap;pointer-events:none}.dcu-wb-drag-ghost-icon{display:grid;place-items:center;flex:none;width:16px;height:16px;color:var(--dcu-sidebar-icon)}.dcu-wb-drag-ghost-icon svg{display:block;width:16px;height:16px}.dcu-wb-drag-ghost-title{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .dcu-wb-folder{display:grid;place-items:center;flex:none;width:16px;height:20px;color:var(--dcu-sidebar-icon)}.dcu-wb-folder.dcu-wb-folder-current{color:var(--dsw-alias-state-business-primary)}.dcu-wb-brand{display:block;width:16px;height:16px}
 .dcu-wb-project-title,.dcu-wb-session-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;line-height:20px}
 .dcu-wb-project-title{flex:1;font-weight:400;color:var(--dcu-sidebar-primary)}
@@ -179,7 +171,7 @@ const stylesheet = `
 .dcu-wb-more{display:grid;place-items:center;width:20px;height:20px;border:0;border-radius:4px;padding:0;background:transparent;color:var(--dcu-sidebar-tertiary);cursor:pointer}
 .dcu-wb-more:hover{color:var(--dcu-sidebar-primary)}
 .dcu-wb-context-anchor{opacity:0;pointer-events:none}
-.dcu-wb-tip{position:fixed;z-index:10050;min-width:220px;max-width:280px;padding:10px 12px;border:1px solid var(--dcu-sidebar-border);border-radius:12px;background:var(--dcu-tip-bg,var(--dsw-alias-tooltip-bg));box-shadow:var(--dcu-tip-shadow,var(--dsw-shadow-lv3));color:var(--dcu-sidebar-primary);animation:dcu-tip-in 180ms cubic-bezier(.16,1,.3,1)}.dcu-wb-tip-workspace{width:316px;min-width:0;max-width:calc(100vw - 16px);padding:10px 8px 8px}@keyframes dcu-tip-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}@media (prefers-reduced-motion:reduce){.dcu-wb-tip{animation:none}}.dcu-wb-tip-title{display:flex;align-items:center;gap:6px;min-width:0;min-height:20px;font-size:14px;line-height:20px;font-weight:500}.dcu-wb-tip-title-main{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dcu-wb-tip-time{flex:none;margin-left:auto;color:var(--dcu-sidebar-tertiary);font-size:12px;line-height:18px;font-weight:400}.dcu-wb-tip-pin{display:grid;place-items:center;flex:none;width:20px;height:20px;border:0;border-radius:4px;padding:0;background:transparent;color:var(--dcu-sidebar-tertiary);cursor:pointer}.dcu-wb-tip-pin:hover{background:var(--dcu-sidebar-hover);color:var(--dcu-sidebar-primary)}.dcu-wb-tip-meta,.dcu-wb-tip-row{display:flex;align-items:center;gap:6px;min-width:0;margin-top:4px;color:var(--dcu-sidebar-secondary);font-size:14px;line-height:20px}.dcu-wb-tip-meta svg,.dcu-wb-tip-row svg{flex:none}.dcu-wb-tip-row>span:not(.dcu-wb-folder){min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dcu-wb-tip-path{align-items:flex-start;margin-top:8px}.dcu-wb-tip-path-copy{min-width:0;overflow-wrap:anywhere;white-space:normal}.dcu-wb-tip-sep{height:1px;margin:8px 0 4px;background:var(--dcu-sidebar-border)}.dcu-wb-tip-edit{display:flex;align-items:center;gap:6px;width:100%;min-height:24px;border:0;padding:2px 0;background:transparent;color:var(--dcu-sidebar-primary);font:14px/20px var(--dsw-font-family);text-align:left;cursor:pointer}.dcu-wb-tip-edit svg{flex:none;color:var(--dcu-sidebar-secondary)}
+.dcu-wb-tip{position:fixed;z-index:10050;min-width:220px;max-width:280px;padding:10px 12px;border:1px solid var(--dcu-sidebar-border);border-radius:12px;background:var(--dcu-tip-bg,var(--dsw-alias-tooltip-bg));box-shadow:var(--dcu-tip-shadow,var(--dsw-shadow-lv3));color:var(--dcu-sidebar-primary);animation:dcu-tip-in 180ms cubic-bezier(.16,1,.3,1)}.dcu-wb-tip-workspace{width:316px;min-width:0;max-width:calc(100vw - 16px);padding:10px 8px 8px}@keyframes dcu-tip-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}@media (prefers-reduced-motion:reduce){.dcu-wb-tip{animation:none}}.dcu-wb-tip-title{display:flex;align-items:center;gap:6px;min-width:0;min-height:20px;font-size:14px;line-height:20px;font-weight:500}.dcu-wb-tip-title-main{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dcu-wb-tip-time{flex:none;margin-left:auto;color:var(--dcu-sidebar-tertiary);font-size:12px;line-height:18px;font-weight:400}.dcu-wb-tip-meta,.dcu-wb-tip-row{display:flex;align-items:center;gap:6px;min-width:0;margin-top:4px;color:var(--dcu-sidebar-secondary);font-size:14px;line-height:20px}.dcu-wb-tip-meta svg,.dcu-wb-tip-row svg{flex:none}.dcu-wb-tip-row>span:not(.dcu-wb-folder){min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dcu-wb-tip-path{align-items:flex-start;margin-top:8px}.dcu-wb-tip-path-copy{min-width:0;overflow-wrap:anywhere;white-space:normal}.dcu-wb-tip-sep{height:1px;margin:8px 0 4px;background:var(--dcu-sidebar-border)}.dcu-wb-tip-edit{display:flex;align-items:center;gap:6px;width:100%;min-height:24px;border:0;padding:2px 0;background:transparent;color:var(--dcu-sidebar-primary);font:14px/20px var(--dsw-font-family);text-align:left;cursor:pointer}.dcu-wb-tip-edit svg{flex:none;color:var(--dcu-sidebar-secondary)}
 .dcu-wb-session:has(.dcu-wb-pending){padding-right:112px}.dcu-wb-unread{position:absolute;right:13px;top:50%;width:7px;height:7px;margin:-3.5px 0 0;border-radius:50%;background:var(--dsw-alias-state-business-primary)}
 .dcu-wb-pending{position:absolute;right:10px;top:50%;display:flex;align-items:center;gap:4px;max-width:88px;margin:0;transform:translateY(-50%);color:var(--dsw-alias-state-warn-label);font-size:11px;line-height:16px;white-space:nowrap}.dcu-wb-pending-dot{flex:none;width:7px;height:7px;border-radius:50%;background:var(--dsw-alias-state-warn-primary)}.dcu-wb-pending-label{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .dcu-wb-empty{padding:14px 8px;color:var(--dcu-sidebar-tertiary);font-size:13px}
@@ -198,7 +190,7 @@ const runningStyles = `.dcu-wb-running{position:absolute;left:8px;top:50%;displa
 
 const typographyStyles = `.dcu-wb{--dcu-wb-disclosure-duration:180ms;--dcu-wb-disclosure-ease:cubic-bezier(.16,1,.3,1);font:14px/20px var(--dsw-font-family)}.dcu-wb-section-label{color:var(--dcu-sidebar-secondary);font:13px/20px var(--dsw-font-family);font-weight:400;letter-spacing:0;padding-left:0}.dcu-wb-section-caret{transition:opacity var(--dcu-wb-disclosure-duration) var(--dcu-wb-disclosure-ease),transform var(--dcu-wb-disclosure-duration) var(--dcu-wb-disclosure-ease)}.dcu-wb-section-head .dcu-wb-section-caret{position:static;left:auto;top:auto;opacity:.78}.dcu-wb-section-body,.dcu-wb-project-body{display:block;min-height:0;height:auto;overflow:clip;opacity:1;transform:none;visibility:visible}.dcu-wb-section-body[data-open=false],.dcu-wb-project-body[data-open=false]{display:block;height:0;opacity:0;transform:translateY(-2px);pointer-events:none}.dcu-wb-section-body[data-open=true]:has(.dcu-wb-drop),.dcu-wb-project-body[data-open=true]:has(.dcu-wb-drop){overflow:visible}.dcu-wb-section-body[data-open=true]>div{animation:none}@media (prefers-reduced-motion:reduce){.dcu-wb-section-caret{transition:none}}.dcu-wb-project-title{font-size:14px;line-height:20px;font-weight:400;color:var(--dcu-sidebar-primary)}.dcu-wb-session-title{font-size:14px;line-height:20px;font-weight:400;color:var(--dcu-sidebar-secondary)}.dcu-wb-session.dcu-wb-selected .dcu-wb-session-title,.dcu-wb-session:hover .dcu-wb-session-title{color:var(--dcu-sidebar-primary)}.dcu-wb-empty{color:var(--dcu-sidebar-tertiary);font-size:13px;line-height:18px}`
 
-// 置顶、项目和最近沿用 Codex 的紧凑层级；空态与展开按钮保留原有排版。
+// 项目和最近沿用 Codex 的紧凑层级；空态与展开按钮保留原有排版。
 const layoutStyles = `
 .dcu-wb-tree{position:relative}
 .dcu-wb-tree[data-drop-indicator=measured] .dcu-wb-drop::before{display:none}
@@ -206,7 +198,6 @@ const layoutStyles = `
 .dcu-wb-drop-indicator::before{content:"";position:absolute;left:6px;right:0;top:3px;height:2px;border-radius:999px;background:currentColor}
 .dcu-wb-drop-indicator::after{content:"";position:absolute;box-sizing:border-box;left:0;top:0;width:8px;height:8px;border:2px solid currentColor;border-radius:50%}
 .dcu-wb-project-body:has(>.dcu-wb-session)::after{content:"";display:block;height:4px;pointer-events:none}
-.dcu-wb-section-body[data-open=true]:has(.dcu-wb-pin-end),.dcu-wb-section-body[data-open=true]:has(.dcu-wb-pin-start){overflow:visible}
 .dcu-wb-project-body>.dcu-wb-session:first-child{padding-top:4px}
 .dcu-wb-nochat{font-size:13px;line-height:18px;color:var(--dcu-sidebar-tertiary)}
 .dcu-wb-nochat{padding:1px 8px 5px 30px}
@@ -220,10 +211,6 @@ export const WORKSPACE_TREE_STYLE = stylesheet + runningStyles + typographyStyle
 
 function storage(): Storage | undefined {
   return browserStorage()
-}
-
-function sameIds(left: readonly string[], right: readonly string[]): boolean {
-  return left.length === right.length && left.every((id, index) => id === right[index])
 }
 
 function optionalText(value: object, key: string): string | undefined {
@@ -255,39 +242,10 @@ function CodexWorkspaceTree({ wide, useSessions, useSessionPendingInteraction, u
   const sessionStatus = useHostSessionStatus(useSessionStatus)
   const selectedId = visibleSelectedSessionId(sessions, panelActive)
   const workspaces = useWorkspaces(state => state)
-  const baselinesReady = workspaceBaselinesReady(workspaces, sessions)
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() => readTreeExpansionState(storage(), WORKSPACE_EXPANSION_STORAGE_KEY))
   const [sessionWindows, setSessionWindows] = useState<Record<string, ProjectSessionWindowState>>({})
   const revealMoreSessions = (workspaceId: string) => {
     setSessionWindows(current => ({ ...current, [workspaceId]: nextProjectSessionWindow(current[workspaceId]) }))
-  }
-  const [pinnedWorkspaceIds, setPinnedWorkspaceIdsState] = useState(() => readPinnedWorkspaceIds(storage()))
-  const pinnedWorkspaceIdsRef = useRef(pinnedWorkspaceIds)
-  pinnedWorkspaceIdsRef.current = pinnedWorkspaceIds
-  const pinnedHostHydratedRef = useRef(false)
-  const pinnedHostDirtyRef = useRef(false)
-  const pinnedHostSkipWriteRef = useRef<string[]>()
-  const pinnedHostWriteRef = useRef<Promise<void>>(Promise.resolve())
-  const [preferencesFailure, setPreferencesFailure] = useState<unknown>()
-  const workspaceBaselineRef = useRef<{ ready: boolean; validIds: string[] }>({ ready: false, validIds: [] })
-  workspaceBaselineRef.current = {
-    ready: baselinesReady,
-    validIds: workspaces.items.map(workspace => String(workspace.workspaceId)),
-  }
-  const queuePinnedHostWrite = (ids: readonly string[]): void => {
-    const snapshot = [...ids]
-    const pending = pinnedHostWriteRef.current.then(async () => {
-      await writeHostWorkspacePreferences(snapshot)
-      setPreferencesFailure(undefined)
-    })
-    pinnedHostWriteRef.current = pending.catch(reason => { setPreferencesFailure(reason) })
-  }
-  const setPinnedWorkspaceIds = (update: string[] | ((current: string[]) => string[])): void => {
-    pinnedHostDirtyRef.current = true
-    const current = pinnedWorkspaceIdsRef.current
-    const next = typeof update === 'function' ? update(current) : update
-    pinnedWorkspaceIdsRef.current = next
-    setPinnedWorkspaceIdsState(next)
   }
   const [unreadSessionIds, setUnreadSessionIds] = useState(() => readSessionIds(storage(), SESSION_UNREAD_STORAGE_KEY))
   const rowUnread = (id: string): boolean => sessionRowUnread(unreadSessionIds.includes(id), sessionStatus.get(id), selectedId === id)
@@ -308,14 +266,7 @@ function CodexWorkspaceTree({ wide, useSessions, useSessionPendingInteraction, u
   const busyRef = useRef<string>()
   const [error, setError] = useState<string>()
   const [workspaceDragId, setWorkspaceDragId] = useState<string>()
-  const [workspaceDropTarget, setWorkspaceDropTargetState] = useState<WorkspaceDropTarget>()
-  const workspaceDropTargetRef = useRef<WorkspaceDropTarget>()
-  const setWorkspaceDropTarget = (target: WorkspaceDropTarget | undefined): void => {
-    // dragover 与 drop 可能发生在 React 提交 state 之前；ref 保证松手时读取到最后一个蓝线落点。
-    if (sameWorkspaceDropTarget(workspaceDropTargetRef.current, target)) return
-    workspaceDropTargetRef.current = target
-    setWorkspaceDropTargetState(target)
-  }
+  const [workspaceDropTarget, setWorkspaceDropTarget] = useState<WorkspaceDropTarget>()
   const [headerMenu, setHeaderMenu] = useState<{ id: string; getRect: () => DOMRect }>()
   const headerMenuRef = useRef<{ id: string; getRect: () => DOMRect }>()
   headerMenuRef.current = headerMenu
@@ -328,53 +279,7 @@ function CodexWorkspaceTree({ wide, useSessions, useSessionPendingInteraction, u
 
   useEffect(() => { writeTreeExpansionState(storage(), WORKSPACE_EXPANSION_STORAGE_KEY, expanded) }, [expanded])
 
-  useEffect(() => {
-    savePinnedWorkspaceIds(storage(), pinnedWorkspaceIds)
-    if (!pinnedHostHydratedRef.current) return
-    const skippedHydration = pinnedHostSkipWriteRef.current
-    pinnedHostSkipWriteRef.current = undefined
-    if (skippedHydration !== undefined && sameIds(skippedHydration, pinnedWorkspaceIds)) return
-    queuePinnedHostWrite(pinnedWorkspaceIds)
-  }, [pinnedWorkspaceIds])
-  useEffect(() => {
-    let alive = true
-    const local = [...pinnedWorkspaceIdsRef.current]
-    void readHostWorkspacePreferences().then(host => {
-      if (!alive) return
-      const dirty = pinnedHostDirtyRef.current ? pinnedWorkspaceIdsRef.current : undefined
-      const hydration = resolvePinnedWorkspaceHydration(local, host, dirty)
-      const baseline = workspaceBaselineRef.current
-      const ids = baseline.ready ? prunePinnedWorkspaceIds(hydration.ids, baseline.validIds) : hydration.ids
-      const writeHost = hydration.writeHost || !sameIds(ids, hydration.ids)
-      pinnedHostHydratedRef.current = true
-      if (!sameIds(pinnedWorkspaceIdsRef.current, ids)) {
-        // 只跳过这一份 hydration 快照；若用户紧接着操作，新的状态仍必须写回 Host。
-        pinnedHostSkipWriteRef.current = [...ids]
-        pinnedWorkspaceIdsRef.current = ids
-        setPinnedWorkspaceIdsState(ids)
-      }
-      savePinnedWorkspaceIds(storage(), ids)
-      if (writeHost) queuePinnedHostWrite(ids)
-    }).catch(reason => {
-      if (!alive) return
-      setPreferencesFailure(reason)
-      // Host 临时不可用时保留当前 origin 的缓存；下次加载再尝试迁移。
-      pinnedHostHydratedRef.current = true
-    })
-    return () => { alive = false }
-  }, [])
   useEffect(() => { writeSessionIds(storage(), SESSION_UNREAD_STORAGE_KEY, unreadSessionIds) }, [unreadSessionIds])
-  useEffect(() => {
-    // Host 可能在 workspace.list 完成前先送来单条 frame；非空不代表完整，必须等双基线 ready。
-    // 否则临时列表会把已保存的置顶过滤为空，再由持久化 effect 永久写回空数组。
-    if (!baselinesReady) return
-    const validIds = workspaces.items.map(workspace => String(workspace.workspaceId))
-    const nextPinned = prunePinnedWorkspaceIds(pinnedWorkspaceIdsRef.current, validIds)
-    if (!sameIds(pinnedWorkspaceIdsRef.current, nextPinned)) {
-      pinnedWorkspaceIdsRef.current = nextPinned
-      setPinnedWorkspaceIdsState(nextPinned)
-    }
-  }, [baselinesReady, workspaces.items])
   useEffect(() => {
     if (selectedId !== undefined) setUnreadSessionIds(ids => ids.filter(id => id !== selectedId))
   }, [selectedId])
@@ -418,7 +323,7 @@ function CodexWorkspaceTree({ wide, useSessions, useSessionPendingInteraction, u
         dismissTip()
         return
       }
-      showTip({ kind: 'workspace', id: workspace.workspaceId, title: workspace.title, path: workspace.path, count: workspace.visibleIds.length, unreadCount: workspace.visibleIds.filter(id => rowUnread(String(id))).length, pinned: pinnedWorkspaceIds.includes(String(workspace.workspaceId)), left: detail.left, top: detail.top }, { immediate: true })
+      showTip({ kind: 'workspace', id: workspace.workspaceId, title: workspace.title, path: workspace.path, count: workspace.visibleIds.length, unreadCount: workspace.visibleIds.filter(id => rowUnread(String(id))).length, left: detail.left, top: detail.top }, { immediate: true })
     }
     const onMenu = (event: Event): void => {
       const detail = (event as CustomEvent<HeaderAnchorDetail>).detail
@@ -439,18 +344,9 @@ function CodexWorkspaceTree({ wide, useSessions, useSessionPendingInteraction, u
       window.removeEventListener(HEADER_PROJECT_TIP_EVENT, onProject)
       window.removeEventListener(HEADER_SESSION_MENU_EVENT, onMenu)
     }
-  }, [groups.items, menu, pinnedWorkspaceIds, selectedId, unreadSessionIds])
+  }, [groups.items, menu, selectedId, unreadSessionIds])
 
-
-  const projectPinned = (id: WorkspaceId | string): boolean => pinnedWorkspaceIds.includes(String(id))
-  const pinnedGroups = orderByIds(groups.items, pinnedWorkspaceIds, workspace => String(workspace.workspaceId))
-  const regularGroups = groups.items.filter(workspace => !projectPinned(workspace.workspaceId))
-  const pinDragActive = workspaceDragId !== undefined
-  const pinnedGroupIds = pinnedGroups.map(workspace => String(workspace.workspaceId))
-  const regularGroupIds = regularGroups.map(workspace => String(workspace.workspaceId))
-  const pinnedHeaderDrop = workspaceDropTarget?.zone === 'pinned' && workspaceDropTarget.beforeId === pinnedGroupIds[0]
-    ? pinnedHeaderDropIndicator(pinnedGroupIds)
-    : undefined
+  const groupIds = groups.items.map(workspace => String(workspace.workspaceId))
   const assignedIds = workspaces.items.flatMap(workspace => workspace.sessionIds.map(id => String(id)))
   const recentIds = ungroupedSessionIds(sessions.ids ?? Object.keys(sessions.byId), sessions.byId, assignedIds, workspaces.archivedSessionIds).sort((left, right) => (sessions.byId[right as SessionId]?.updatedAt ?? 0) - (sessions.byId[left as SessionId]?.updatedAt ?? 0))
   const run = async (key: string, action: () => Promise<unknown>): Promise<void> => {
@@ -479,7 +375,6 @@ function CodexWorkspaceTree({ wide, useSessions, useSessionPendingInteraction, u
         setUnreadSessionIds(ids => ids.filter(id => id !== target.id))
       } else {
         await deleteWorkspace(target.id as WorkspaceId)
-        setPinnedWorkspaceIds(ids => ids.filter(id => id !== target.id))
       }
       setDeleteTarget(undefined)
     })
@@ -514,13 +409,12 @@ function CodexWorkspaceTree({ wide, useSessions, useSessionPendingInteraction, u
   const triggerAddWorkspace = (): void => {
     requestAddWorkspace?.()
   }
-  const sectionOpen = (id: 'pinned' | 'projects' | 'recent'): boolean => expanded[`section:${id}`] ?? true
-  const toggleSection = (id: 'pinned' | 'projects' | 'recent'): void => {
+  const sectionOpen = (id: 'projects' | 'recent'): boolean => expanded[`section:${id}`] ?? true
+  const toggleSection = (id: 'projects' | 'recent'): void => {
     setExpanded(current => ({ ...current, [`section:${id}`]: !(current[`section:${id}`] ?? true) }))
   }
   const projectMenu = (workspace: (typeof groups.items)[number]): MenuEntry[] => {
     return [
-      { id: 'pin', label: t(projectPinned(workspace.workspaceId) ? 'workspace.unpin' : 'workspace.pin'), icon: <PinIcon /> },
       { id: 'rename', label: t('workspace.rename'), icon: <IconEditOutlineMedium size={16} /> },
       { type: 'separator', id: 'project-main-separator' },
       { id: 'openPath', label: t('workspace.openPath'), icon: <IconFolderOpenOutlineMedium size={16} /> },
@@ -534,7 +428,6 @@ function CodexWorkspaceTree({ wide, useSessions, useSessionPendingInteraction, u
     if (busy !== undefined) return
     const workspaceId = String(workspace.workspaceId)
     if (id === 'rename') beginRename('workspace', workspace.workspaceId, workspace.title)
-    if (id === 'pin') { setPinnedWorkspaceIds(ids => togglePinnedWorkspace(ids, workspace.workspaceId)); setMenu(undefined) }
     if (id === 'archiveWorkspace') { setArchiveWorkspaceTarget({ id: workspaceId, title: workspace.title, sessionIds: [...workspace.visibleIds] }); setError(undefined); setMenu(undefined) }
     if (id === 'openPath') openPathImmediately(workspace.path)
     if (id === 'delete') { setDeleteTarget({ id: workspace.workspaceId, kind: 'workspace', title: workspace.title }); setError(undefined); setMenu(undefined) }
@@ -575,36 +468,29 @@ function CodexWorkspaceTree({ wide, useSessions, useSessionPendingInteraction, u
     const target = sessionMoveTarget
     if (target === undefined) return
     void run('session-move', async () => {
-      const nextExpanded = expandedForSessionMove(expanded, {
-        workspaceId: target.targetWorkspaceId,
-        pinned: projectPinned(target.targetWorkspaceId),
-      })
+      const nextExpanded = expandedForSessionMove(expanded, { workspaceId: target.targetWorkspaceId })
       setExpanded(nextExpanded)
       writeTreeExpansionState(storage(), WORKSPACE_EXPANSION_STORAGE_KEY, nextExpanded)
       await moveSession(target.sessionId as SessionId, target.targetWorkspaceId as WorkspaceId)
       setSessionMoveTarget(undefined)
     })
   }
-  const pinWorkspaceAt = (id: string, beforeId?: string): void => { setPinnedWorkspaceIds(ids => insertPinnedWorkspace(ids, id, beforeId)) }
-  const renderGroup = (workspace: (typeof groups.items)[number], zone: 'pinned' | 'projects') => {
-    const expandKey = zone === 'pinned' ? `pin:${workspace.workspaceId}` : String(workspace.workspaceId)
+  const renderGroup = (workspace: (typeof groups.items)[number]) => {
+    const expandKey = String(workspace.workspaceId)
     const isExpanded = expanded[expandKey] ?? true
     const currentSessionId = selectedId
     const folder = projectFolderPresentation(isExpanded, workspace.visibleIds.some(id => id === currentSessionId))
     const shownIds = workspace.visibleIds
     const menuOpen = menu?.type === 'workspace' && menu.id === workspace.workspaceId
     const menuAt = menuOpen && menu.x !== undefined && menu.y !== undefined ? { x: menu.x, y: menu.y } : undefined
-    const isPinnedHeaderDrop = zone === 'pinned' && pinnedHeaderDrop?.kind === 'workspace' && pinnedHeaderDrop.workspaceId === String(workspace.workspaceId)
     const workspaceId = String(workspace.workspaceId)
     const sessionWindow = projectSessionWindow(shownIds, sessionWindows[workspaceId] ?? { expanded: false, page: 1 }, currentSessionId !== undefined && shownIds.includes(currentSessionId) ? currentSessionId : undefined)
     const renderedIds = sessionWindow.ids
     const dropAfterSessionId = sessionDropTarget?.workspaceId === workspaceId && sessionDropTarget.ontoProject !== true
       ? sessionDropAfterRowId(sessionDropTarget, renderedIds)
       : undefined
-    const zoneIds = zone === 'pinned' ? pinnedGroupIds : regularGroupIds
-    const dropsBefore = workspaceDropTarget?.zone === zone && workspaceDropTarget.beforeId === workspaceId
-    // 置顶末尾已有独立 pin-end 指示器；项目区再画一次会形成截图中的两条平行蓝线。
-    const dropsAfterLast = zone === 'projects' && workspaceDropTarget?.zone === zone && workspaceDropTarget.beforeId === undefined && zoneIds[zoneIds.length - 1] === workspaceId
+    const dropsBefore = workspaceDropTarget?.beforeId === workspaceId
+    const dropsAfterLast = workspaceDropTarget !== undefined && workspaceDropTarget.beforeId === undefined && groupIds[groupIds.length - 1] === workspaceId
     const projectSessionDrop = sessionDropTarget?.workspaceId === workspaceId && sessionDropTarget.ontoProject === true
     const projectSessionMoveDrop = projectSessionDrop && sessionDropTarget.crossWorkspace === true
     const handleProjectDragOver = (event: DragEvent<HTMLDivElement>): void => {
@@ -614,9 +500,9 @@ function CodexWorkspaceTree({ wide, useSessions, useSessionPendingInteraction, u
         event.stopPropagation()
         event.dataTransfer.dropEffect = 'move'
         const rect = event.currentTarget.getBoundingClientRect()
-        const beforeId = reorderDropBeforeId(zoneIds, draggedWorkspace, workspaceId, event.clientY > rect.top + rect.height / 2)
+        const beforeId = reorderDropBeforeId(groupIds, draggedWorkspace, workspaceId, event.clientY > rect.top + rect.height / 2)
         setSessionDropTarget(undefined)
-        setWorkspaceDropTarget(beforeId === null ? undefined : { zone, beforeId })
+        setWorkspaceDropTarget(beforeId === null ? undefined : { beforeId })
         return
       }
       const draggedSessionId = readSessionDrag(event.dataTransfer, sessionDrag?.sessionId)
@@ -634,11 +520,10 @@ function CodexWorkspaceTree({ wide, useSessions, useSessionPendingInteraction, u
         event.preventDefault()
         event.stopPropagation()
         const rect = event.currentTarget.getBoundingClientRect()
-        const beforeId = reorderDropBeforeId(zoneIds, draggedWorkspace, workspaceId, event.clientY > rect.top + rect.height / 2)
+        const beforeId = reorderDropBeforeId(groupIds, draggedWorkspace, workspaceId, event.clientY > rect.top + rect.height / 2)
         setWorkspaceDragId(undefined)
         setWorkspaceDropTarget(undefined)
         if (beforeId === null) return
-        if (zone === 'pinned') { pinWorkspaceAt(draggedWorkspace, beforeId); return }
         const hostIds = groups.items.map(item => String(item.workspaceId))
         if (moveBefore(hostIds, draggedWorkspace, beforeId).some((id, index) => id !== hostIds[index])) {
           void run('workspace-order', () => insertWorkspaceBefore(draggedWorkspace as WorkspaceId, beforeId as WorkspaceId | undefined))
@@ -659,9 +544,9 @@ function CodexWorkspaceTree({ wide, useSessions, useSessionPendingInteraction, u
       }
       void run('session-order', () => insertSessionBefore(workspace.workspaceId, draggedSessionId as SessionId, shownIds[0] as SessionId | undefined))
     }
-    return <div className={`dcu-wb-project${isPinnedHeaderDrop || dropsBefore ? ' dcu-wb-drop' : ''}${dropsAfterLast ? ' dcu-wb-drop dcu-wb-drop-after' : ''}${projectSessionDrop ? ' dcu-wb-session-drop' : ''}${projectSessionMoveDrop ? ' dcu-wb-session-move-drop' : ''}`} key={workspace.workspaceId} onDragOver={handleProjectDragOver} onDragLeave={(event) => { if (event.currentTarget.contains(event.relatedTarget as Node)) return; setWorkspaceDropTarget(undefined); setSessionDropTarget(undefined) }} onDrop={handleProjectDrop}>
-      <div className={`dcu-wb-project-head${menuOpen ? ' dcu-wb-menu-open' : ''}${workspaceDragId === workspaceId ? ' dcu-wb-dragging' : ''}`} role="treeitem" aria-expanded={isExpanded} tabIndex={0} draggable onDragStart={(event) => { event.stopPropagation(); setSessionDrag(undefined); setSessionDropTarget(undefined); writeWorkspaceDrag(event.dataTransfer, workspaceId, workspace.title); setDragPreview(event.dataTransfer, workspace.title, event.currentTarget.querySelector('.dcu-wb-folder')); setWorkspaceDragId(workspaceId) }} onDragEnd={() => { setWorkspaceDragId(undefined); setWorkspaceDropTarget(undefined) }} onClick={() => { toggleProject(expandKey, workspaceId) }} onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); dismissTip(); setMenu({ id: workspace.workspaceId, type: 'workspace', x: event.clientX, y: event.clientY }) }} onMouseEnter={(event) => { const box = hoverCardAnchor(event.currentTarget.getBoundingClientRect()); showTip({ kind: 'workspace', id: workspace.workspaceId, title: workspace.title, path: workspace.path, count: workspace.visibleIds.length, unreadCount: workspace.visibleIds.filter(id => rowUnread(String(id))).length, pinned: projectPinned(workspace.workspaceId), left: box.left, top: box.top }) }} onMouseLeave={hideTip} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleProject(expandKey, workspaceId) } }}>
-        <span className={`dcu-wb-folder${folder.current ? ' dcu-wb-folder-current' : ''}`} onClick={(event) => { event.stopPropagation(); const box = hoverCardAnchor(event.currentTarget.getBoundingClientRect()); if (isShowing('workspace', workspace.workspaceId)) { dismissTip(); return } showTip({ kind: 'workspace', id: workspace.workspaceId, title: workspace.title, path: workspace.path, count: workspace.visibleIds.length, unreadCount: workspace.visibleIds.filter(id => rowUnread(String(id))).length, pinned: projectPinned(workspace.workspaceId), left: box.left, top: box.top }, { immediate: true }) }}>{folder.open ? folder.current ? <IconFolderOpenMedium size={16} /> : <IconFolderOpenOutlineMedium size={16} /> : <IconFolderCloseMedium size={16} />}</span><span className="dcu-wb-project-title">{workspace.title}</span><span className="dcu-wb-actions"><Menu open={menuOpen} onClose={() => { setMenu(undefined) }} items={projectMenu(workspace)} onSelect={(id) => { handleProjectMenuAction(workspace, id) }} portal dense getAnchorRect={menuAt === undefined ? undefined : () => pointerMenuRect(menuAt.x, menuAt.y)} anchor={<button type="button" className="dcu-wb-more" aria-label={t('workspace.actions', { name: workspace.title })} onClick={(event) => { event.stopPropagation(); dismissTip(); setMenu(current => current?.id === workspace.workspaceId && current?.type === 'workspace' ? undefined : { id: workspace.workspaceId, type: 'workspace' }) }}><IconEllipsisOutlineMedium size={16} /></button>} /></span><span className="dcu-wb-actions"><button type="button" className="dcu-wb-more" aria-label={t('workspace.newSession')} onClick={(event) => { event.stopPropagation(); startSession(workspace.workspaceId) }}><NewSessionIcon /></button></span>
+    return <div className={`dcu-wb-project${dropsBefore ? ' dcu-wb-drop' : ''}${dropsAfterLast ? ' dcu-wb-drop dcu-wb-drop-after' : ''}${projectSessionDrop ? ' dcu-wb-session-drop' : ''}${projectSessionMoveDrop ? ' dcu-wb-session-move-drop' : ''}`} key={workspace.workspaceId} onDragOver={handleProjectDragOver} onDragLeave={(event) => { if (event.currentTarget.contains(event.relatedTarget as Node)) return; setWorkspaceDropTarget(undefined); setSessionDropTarget(undefined) }} onDrop={handleProjectDrop}>
+      <div className={`dcu-wb-project-head${menuOpen ? ' dcu-wb-menu-open' : ''}${workspaceDragId === workspaceId ? ' dcu-wb-dragging' : ''}`} role="treeitem" aria-expanded={isExpanded} tabIndex={0} draggable onDragStart={(event) => { event.stopPropagation(); setSessionDrag(undefined); setSessionDropTarget(undefined); writeWorkspaceDrag(event.dataTransfer, workspaceId, workspace.title); setDragPreview(event.dataTransfer, workspace.title, event.currentTarget.querySelector('.dcu-wb-folder')); setWorkspaceDragId(workspaceId) }} onDragEnd={() => { setWorkspaceDragId(undefined); setWorkspaceDropTarget(undefined) }} onClick={() => { toggleProject(expandKey, workspaceId) }} onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); dismissTip(); setMenu({ id: workspace.workspaceId, type: 'workspace', x: event.clientX, y: event.clientY }) }} onMouseEnter={(event) => { const box = hoverCardAnchor(event.currentTarget.getBoundingClientRect()); showTip({ kind: 'workspace', id: workspace.workspaceId, title: workspace.title, path: workspace.path, count: workspace.visibleIds.length, unreadCount: workspace.visibleIds.filter(id => rowUnread(String(id))).length, left: box.left, top: box.top }) }} onMouseLeave={hideTip} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleProject(expandKey, workspaceId) } }}>
+        <span className={`dcu-wb-folder${folder.current ? ' dcu-wb-folder-current' : ''}`} onClick={(event) => { event.stopPropagation(); const box = hoverCardAnchor(event.currentTarget.getBoundingClientRect()); if (isShowing('workspace', workspace.workspaceId)) { dismissTip(); return } showTip({ kind: 'workspace', id: workspace.workspaceId, title: workspace.title, path: workspace.path, count: workspace.visibleIds.length, unreadCount: workspace.visibleIds.filter(id => rowUnread(String(id))).length, left: box.left, top: box.top }, { immediate: true }) }}>{folder.open ? folder.current ? <IconFolderOpenMedium size={16} /> : <IconFolderOpenOutlineMedium size={16} /> : <IconFolderCloseMedium size={16} />}</span><span className="dcu-wb-project-title">{workspace.title}</span><span className="dcu-wb-actions"><Menu open={menuOpen} onClose={() => { setMenu(undefined) }} items={projectMenu(workspace)} onSelect={(id) => { handleProjectMenuAction(workspace, id) }} portal dense getAnchorRect={menuAt === undefined ? undefined : () => pointerMenuRect(menuAt.x, menuAt.y)} anchor={<button type="button" className="dcu-wb-more" aria-label={t('workspace.actions', { name: workspace.title })} onClick={(event) => { event.stopPropagation(); dismissTip(); setMenu(current => current?.id === workspace.workspaceId && current?.type === 'workspace' ? undefined : { id: workspace.workspaceId, type: 'workspace' }) }}><IconEllipsisOutlineMedium size={16} /></button>} /></span><span className="dcu-wb-actions"><button type="button" className="dcu-wb-more" aria-label={t('workspace.newSession')} onClick={(event) => { event.stopPropagation(); startSession(workspace.workspaceId) }}><NewSessionIcon /></button></span>
       </div>
       <DisclosureBody className="dcu-wb-project-body" open={isExpanded}>
       {shownIds.length === 0 && <div className="dcu-wb-nochat">{t('workspace.noChat')}</div>}
@@ -699,7 +584,6 @@ function CodexWorkspaceTree({ wide, useSessions, useSessionPendingInteraction, u
         workspaceId: String(item.workspaceId),
         sessionIds: item.sessionIds.map(id => String(id)),
       })),
-      pinnedWorkspaceIds,
       recentIds,
     }
     const inTree = tree.workspaces.some(item => item.sessionIds.includes(current)) || tree.recentIds.includes(current)
@@ -707,7 +591,7 @@ function CodexWorkspaceTree({ wide, useSessions, useSessionPendingInteraction, u
     lastRevealedSessionIdRef.current = current
     pendingRevealScrollRef.current = true
     setExpanded(currentExpanded => expandedForCurrentSession(currentExpanded, current, tree))
-  }, [pinnedWorkspaceIds, recentIds, selectedId, workspaces.items])
+  }, [recentIds, selectedId, workspaces.items])
   useLayoutEffect(() => {
     if (!pendingRevealScrollRef.current) return
     pendingRevealScrollRef.current = false
@@ -717,16 +601,11 @@ function CodexWorkspaceTree({ wide, useSessions, useSessionPendingInteraction, u
   if (!wide) return <div className="dcu-wb dcu-wb-rail"><style>{stylesheet}</style></div>
   return <section className="dcu-wb" aria-label={t('workspace.label')}>
     <style>{stylesheet}{runningStyles}{typographyStyles}{layoutStyles}</style>
-    {preferencesFailure !== undefined && <div className="dcu-wb-error" role="status">{t('workspace.preferencesLocalOnly')}{businessRequestErrorKey(preferencesFailure) !== undefined && <> {userErrorText(preferencesFailure, t)}</>}</div>}
     {error !== undefined && <div className="dcu-wb-error" role="alert">{t('sessions.failed', { message: error })}</div>}
     <div ref={treeRef} className="dcu-wb-tree" role="tree">
-      <section className="dcu-wb-section" aria-label={t('workspace.pinned')} onDragOver={(event) => { if (!pinDragActive) return; event.preventDefault(); event.dataTransfer.dropEffect = 'move'; if (pinnedGroups.length === 0 || event.target === event.currentTarget || (event.target instanceof Element && event.target.closest('.dcu-wb-section-head') !== null)) { const firstId = pinnedGroupIds[0]; const beforeId = firstId === undefined ? undefined : reorderDropBeforeId(pinnedGroupIds, workspaceDragId, firstId, false); setWorkspaceDropTarget(beforeId === null ? undefined : { zone: 'pinned', beforeId }) } }} onDrop={(event) => { event.preventDefault(); const draggedWorkspace = readWorkspaceDrag(event.dataTransfer, workspaceDragId); const target = workspaceDropTargetRef.current; setWorkspaceDragId(undefined); setWorkspaceDropTarget(undefined); const drop = resolvePinnedSectionDrop(draggedWorkspace, target, pinnedGroups.length === 0); if (drop !== undefined) pinWorkspaceAt(drop.id, drop.beforeId) }} onDragLeave={(event) => { if (!(event.relatedTarget instanceof Node) || event.currentTarget.contains(event.relatedTarget)) return; setWorkspaceDropTarget(undefined) }}>
-        <div className="dcu-wb-section-head"><button type="button" className="dcu-wb-section-label" aria-expanded={sectionOpen('pinned')} onClick={() => { toggleSection('pinned') }}>{t('workspace.pinned')}<span className="dcu-wb-section-caret" aria-hidden="true"><svg viewBox="0 0 16 16" width="12" height="12"><path d="M6.25 4.25 10.25 8 6.25 11.75" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg></span></button></div>
-        <div className="dcu-wb-section-body" data-open={sectionOpen('pinned')}><div className="dcu-wb-pinned-list">{pinDragActive && pinnedGroups.length === 0 && <div className={`dcu-wb-pin-start${pinnedHeaderDrop?.kind === 'empty' ? ' dcu-wb-drop' : ''}`} onDragOver={(event) => { event.preventDefault(); event.stopPropagation(); event.dataTransfer.dropEffect = 'move'; setWorkspaceDropTarget({ zone: 'pinned', beforeId: undefined }) }} onDrop={(event) => { event.preventDefault(); event.stopPropagation(); const draggedWorkspace = readWorkspaceDrag(event.dataTransfer, workspaceDragId); setWorkspaceDragId(undefined); setWorkspaceDropTarget(undefined); if (draggedWorkspace !== undefined) pinWorkspaceAt(draggedWorkspace) }} />}{pinnedGroups.length === 0 && <div className="dcu-wb-empty" onDragOver={(event) => { if (!pinDragActive) return; event.preventDefault(); event.stopPropagation(); event.dataTransfer.dropEffect = 'move'; setWorkspaceDropTarget({ zone: 'pinned', beforeId: undefined }) }} onDrop={(event) => { event.preventDefault(); event.stopPropagation(); const draggedWorkspace = readWorkspaceDrag(event.dataTransfer, workspaceDragId); setWorkspaceDragId(undefined); setWorkspaceDropTarget(undefined); if (draggedWorkspace !== undefined) pinWorkspaceAt(draggedWorkspace) }}>{t('workspace.pinnedEmpty')}</div>}{pinnedGroups.map(workspace => renderGroup(workspace, 'pinned'))}{pinDragActive && pinnedGroups.length > 0 && <div className={`dcu-wb-pin-end${workspaceDropTarget?.zone === 'pinned' && workspaceDropTarget.beforeId === undefined ? ' dcu-wb-drop' : ''}`} onDragOver={(event) => { if (!pinDragActive) return; event.preventDefault(); event.stopPropagation(); event.dataTransfer.dropEffect = 'move'; const lastId = pinnedGroupIds[pinnedGroupIds.length - 1]; if (lastId === undefined || workspaceDragId === undefined) return; const beforeId = reorderDropBeforeId(pinnedGroupIds, workspaceDragId, lastId, true); setWorkspaceDropTarget(beforeId === null ? undefined : { zone: 'pinned', beforeId }) }} />}</div></div>
-      </section>
-      <section className="dcu-wb-section" aria-label={t('workspace.projects')} onDropCapture={(event) => { const dragged = readWorkspaceDrag(event.dataTransfer, workspaceDragId); if (dragged !== undefined && projectPinned(dragged)) setPinnedWorkspaceIds(ids => ids.filter(id => id !== dragged)) }}>
+      <section className="dcu-wb-section" aria-label={t('workspace.projects')}>
         <div className="dcu-wb-section-head"><button type="button" className="dcu-wb-section-label" aria-expanded={sectionOpen('projects')} onClick={() => { toggleSection('projects') }}>{t('workspace.projects')}<span className="dcu-wb-section-caret" aria-hidden="true"><svg viewBox="0 0 16 16" width="12" height="12"><path d="M6.25 4.25 10.25 8 6.25 11.75" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg></span></button><span className="dcu-wb-actions"><button type="button" className="dcu-wb-more" aria-label={t('workspace.add')} title={t('workspace.add')} aria-keyshortcuts={addWorkspaceShortcutAria} disabled={requestAddWorkspace === undefined} onClick={(event) => { event.stopPropagation(); triggerAddWorkspace() }}><AddWorkspaceIcon /></button></span></div>
-        <div className="dcu-wb-section-body" data-open={sectionOpen('projects')}><div className="dcu-wb-collections">{regularGroups.map(workspace => renderGroup(workspace, 'projects'))}{regularGroups.length === 0 && <div className="dcu-wb-empty">{t('workspace.empty')}</div>}</div></div>
+        <div className="dcu-wb-section-body" data-open={sectionOpen('projects')}><div className="dcu-wb-collections">{groups.items.map(workspace => renderGroup(workspace))}{groups.items.length === 0 && <div className="dcu-wb-empty">{t('workspace.empty')}</div>}</div></div>
       </section>
       <section className="dcu-wb-section" aria-label={t('workspace.recent')}>
         <div className="dcu-wb-section-head"><button type="button" className="dcu-wb-section-label" aria-expanded={sectionOpen('recent')} onClick={() => { toggleSection('recent') }}>{t('workspace.recent')}<span className="dcu-wb-section-caret" aria-hidden="true"><svg viewBox="0 0 16 16" width="12" height="12"><path d="M6.25 4.25 10.25 8 6.25 11.75" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg></span></button></div>
@@ -755,7 +634,7 @@ function CodexWorkspaceTree({ wide, useSessions, useSessionPendingInteraction, u
       </section>
     </div>
     {headerMenu !== undefined && sessions.byId[headerMenu.id as SessionId] !== undefined && <Menu open onClose={() => { setHeaderMenu(undefined) }} items={sessionMenu(headerMenu.id, sessions.byId[headerMenu.id as SessionId]!.cwd ?? groups.items.find(item => item.visibleIds.includes(headerMenu.id))?.path)} onSelect={(action) => { const id = headerMenu.id; const session = sessions.byId[id as SessionId]; if (session === undefined || busy !== undefined || runSessionMoveAction(action, id)) return; const path = session.cwd ?? groups.items.find(item => item.visibleIds.includes(id))?.path; if (action === 'rename') beginRename('session', id, session.displayTitle); if (action === 'unread') { setUnreadSessionIds(ids => toggleSessionId(ids, id)) }; if (action === 'archive') void run('archive', () => archiveSession(id as SessionId)); if (action === 'delete') { setDeleteTarget({ id, kind: 'session', title: session.displayTitle }); setError(undefined) }; if (action === 'fork') void run('fork', () => forkSession(id as SessionId)); if (action === 'openPath' && path !== undefined) openPathImmediately(path); if (action === 'copyPath') copy(path); if (action === 'copyTitle') copy(session.displayTitle); if (action === 'copyId') copy(id); setHeaderMenu(undefined) }} portal dense side="bottom" align="start" getAnchorRect={() => headerMenu.getRect()} anchor={<span />} />}
-    <WorkspaceHoverCard t={t} onEditWorkspace={(id, title) => { beginRename('workspace', id, title) }} onToggleWorkspacePin={(id) => { setPinnedWorkspaceIds(ids => togglePinnedWorkspace(ids, id)) }} />
+    <WorkspaceHoverCard t={t} onEditWorkspace={(id, title) => { beginRename('workspace', id, title) }} />
     <Modal open={renameTarget !== undefined} onClose={() => { setRenameTarget(undefined); setError(undefined) }} closeLabel={t('sessions.close')} title={renameTarget?.kind === 'workspace' ? t('workspace.rename') : t('sessions.rename')} description={t('sessions.renameDescription')} footer={<div className="dcu-wb-rename-actions"><Button variant="outline" onClick={() => { setRenameTarget(undefined) }}>{t('sessions.cancel')}</Button><Button variant="primary" disabled={busy !== undefined || renameDraft.trim() === ''} onClick={submitRename}>{t('sessions.save')}</Button></div>}><input className="dcu-wb-rename-input" aria-label={renameTarget?.kind === 'workspace' ? t('workspace.rename') : t('sessions.rename')} value={renameDraft} autoFocus onFocus={event => { event.target.select() }} onChange={event => { setRenameDraft(event.target.value); setError(undefined) }} onKeyDown={event => { if (event.key === 'Enter') submitRename() }} />{error !== undefined && <div className="dcu-wb-error" role="alert">{t('sessions.failed', { message: error })}</div>}</Modal>
     <Modal open={archiveWorkspaceTarget !== undefined} onClose={() => { if (busy !== 'archive-workspace') { setArchiveWorkspaceTarget(undefined); setError(undefined) } }} closeLabel={t('sessions.close')} title={t('workspace.archiveTitle', { count: archiveWorkspaceTarget?.sessionIds.length ?? 0 })} description={archiveWorkspaceTarget === undefined ? undefined : t('workspace.archiveDescription', { name: archiveWorkspaceTarget.title })} footer={<div className="dcu-wb-rename-actions"><Button variant="outline" disabled={busy === 'archive-workspace'} onClick={() => { setArchiveWorkspaceTarget(undefined); setError(undefined) }}>{t('sessions.cancel')}</Button><Button variant="primary" disabled={busy === 'archive-workspace'} onClick={submitArchiveWorkspace}>{t('workspace.archiveConfirm')}</Button></div>}>{busy === 'archive-workspace' && <div className="dcu-wb-error" role="status">{t('workspace.archivePending')}</div>}{error !== undefined && <div className="dcu-wb-error" role="alert">{t('sessions.failed', { message: error })}</div>}</Modal>
     <Modal open={sessionMoveTarget !== undefined} onClose={() => { if (busy !== 'session-move') { setSessionMoveTarget(undefined); setError(undefined) } }} closeLabel={t('sessions.close')} title={t('sessions.moveConfirmTitle', { project: sessionMoveTarget?.targetWorkspaceTitle ?? '' })} description={sessionMoveTarget === undefined ? undefined : t('sessions.moveConfirmDescription', { name: sessionMoveTarget.sessionTitle })} footer={<div className="dcu-wb-rename-actions"><Button variant="outline" disabled={busy === 'session-move'} onClick={() => { setSessionMoveTarget(undefined); setError(undefined) }}>{t('sessions.cancel')}</Button><Button variant="primary" disabled={busy === 'session-move'} onClick={submitSessionMove}>{t('sessions.moveConfirmAction')}</Button></div>}><div className="dcu-wb-move-target"><IconFolderCloseMedium size={16} /><div className="dcu-wb-move-target-copy"><div className="dcu-wb-move-project">{sessionMoveTarget?.targetWorkspaceTitle}</div><div className="dcu-wb-move-path">{sessionMoveTarget?.targetPath}</div></div></div>{busy === 'session-move' && <div className="dcu-wb-error" role="status">{t('sessions.movePending')}</div>}{error !== undefined && <div className="dcu-wb-error" role="alert">{t('sessions.failed', { message: error })}</div>}</Modal>

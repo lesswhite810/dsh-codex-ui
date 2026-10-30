@@ -1,15 +1,11 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { apply, inject } from '../src/index.ts'
+import { apply, inject, readRequestBody, RequestBodyTooLargeError } from '../src/index.ts'
 import { Context } from '@deepseek-ai/cordis'
 import { HostConnectionService } from '@deepseek-ai/dsh-client-connection'
 
 const expectedPaths = [
   '/api/dsh-codex-ui/capabilities',
   '/api/dsh-codex-ui/open-in-explorer',
-  '/api/dsh-codex-ui/preferences',
   '/api/dsh-codex-ui/session-move',
 ]
 const oldPrefix = '/api/michengai/codex-ui/'
@@ -35,10 +31,6 @@ const authenticatedRequests: unknown[] = []
 const authenticationWarnings: string[] = []
 const routes = new Map<string, Route>()
 const disposers: Array<() => void> = []
-const directory = await mkdtemp(join(tmpdir(), 'dcu-business-rest-'))
-const previousProfileDir = process.env.DSH_PROFILE_DIR
-process.env.DSH_PROFILE_DIR = directory
-
 const services: Record<string, unknown> = {
   webServer: {
     register(route: Route) {
@@ -60,7 +52,7 @@ const services: Record<string, unknown> = {
     locate: () => undefined,
   },
   tools: { schemas: () => [] },
-  workspaceRegistry: { list: () => [{ path: directory }] },
+  workspaceRegistry: { list: () => [{ path: process.cwd() }] },
   connection: {
     requestRejection(request: unknown) {
       authenticationCalls += 1
@@ -79,6 +71,16 @@ const context = {
   },
   emit() {},
   logger: { warn(format: string) { authenticationWarnings.push(format) }, info() {} },
+}
+
+{
+  const chunksRequest = (chunks: string[], headers: Record<string, string> = {}) => ({
+    ...createRequest('PUT', chunks),
+    headers: { ...createRequest('PUT').headers, ...headers },
+  })
+  assert.equal(await readRequestBody(chunksRequest(['{"a":', '1}']), 16), '{"a":1}')
+  await assert.rejects(readRequestBody(chunksRequest([], { 'content-length': '17' }), 16), RequestBodyTooLargeError)
+  await assert.rejects(readRequestBody(chunksRequest(['12345678', '901234567']), 16), RequestBodyTooLargeError)
 }
 
 function createRequest(method: string, chunks: string[] = []) {
@@ -116,8 +118,7 @@ try {
   for (const [path, method] of [
     [expectedPaths[0], 'GET'],
     [expectedPaths[1], 'POST'],
-    [expectedPaths[2], 'GET'],
-    [expectedPaths[3], 'POST'],
+    [expectedPaths[2], 'POST'],
   ] as const) {
     const response = await invoke(path, method)
     assert.equal(response.status, 401, `${path} 必须拒绝未登录请求`)
@@ -127,17 +128,17 @@ try {
   assert.deepEqual((authenticatedRequests[0] as ReturnType<typeof createRequest>).headers, createRequest('GET').headers, 'Host、Origin 和其他请求头必须原样交给宿主认证')
   assert.equal((authenticatedRequests[0] as ReturnType<typeof createRequest>).url, expectedPaths[0])
 
-  const unauthorizedMove = await invoke(expectedPaths[3], 'POST')
+  const unauthorizedMove = await invoke(expectedPaths[2], 'POST')
   assert.deepEqual(JSON.parse(unauthorizedMove.body ?? '{}'), { ok: false, code: 'session-move/unauthorized', error: '请先登录 DSH。' })
 
   rejection = 403
   assert.equal((await invoke(expectedPaths[0], 'GET')).status, 403)
-  const forbiddenMove = await invoke(expectedPaths[3], 'POST')
+  const forbiddenMove = await invoke(expectedPaths[2], 'POST')
   assert.equal(JSON.parse(forbiddenMove.body ?? '{}').code, 'session-move/forbidden')
 
   connectionAvailable = false
   assert.equal((await invoke(expectedPaths[0], 'GET')).status, 503)
-  const unavailableMove = await invoke(expectedPaths[3], 'POST')
+  const unavailableMove = await invoke(expectedPaths[2], 'POST')
   assert.equal(JSON.parse(unavailableMove.body ?? '{}').code, 'session-move/service-unavailable')
   assert.equal(authenticationWarnings.length > 0, true, '认证服务缺失必须记录服务端诊断日志')
 
@@ -147,8 +148,9 @@ try {
   assert.match(authenticationWarnings.at(-1) ?? '', /认证/)
   authenticationError = undefined
   rejection = undefined
-  const saved = await invoke(expectedPaths[2], 'PUT', [JSON.stringify({ pinnedWorkspaceIds: [] })])
-  assert.equal(saved.status, 200, '宿主已认证的外部 Origin 不应再被旧 loopback-only 判断拒绝')
+  const authenticatedMove = await invoke(expectedPaths[2], 'POST', [JSON.stringify({ sessionId: '', targetWorkspaceId: '' })])
+  assert.equal(authenticatedMove.status, 400, '宿主已认证的外部 Origin 不应再被旧 loopback-only 判断拒绝')
+  assert.equal(JSON.parse(authenticatedMove.body ?? '{}').code, 'session-move/invalid-request')
 
   // 使用锁文件中的真实宿主信任检查，仅将登录层固定为已登录，证明跨站拒绝不依赖 401。
   const hostContext = new Context()
@@ -165,7 +167,7 @@ try {
       { origin: 'null' },
       { host: 'evil.example', origin: 'https://evil.example' },
     ]) {
-      for (const [path, method] of [[`${expectedPaths[0]}?action=update-all`, 'POST'], [expectedPaths[2], 'PUT'], [expectedPaths[1], 'POST']] as const) {
+      for (const [path, method] of [[`${expectedPaths[0]}?action=update-all`, 'POST'], [expectedPaths[2], 'POST'], [expectedPaths[1], 'POST']] as const) {
         let bodyRead = false
         const response: ResponseRecorder = {
           writeHead(status) { response.status = status },
@@ -183,7 +185,4 @@ try {
   } finally { await hostContext.fiber.dispose() }
 } finally {
   for (const dispose of disposers.reverse()) dispose()
-  if (previousProfileDir === undefined) delete process.env.DSH_PROFILE_DIR
-  else process.env.DSH_PROFILE_DIR = previousProfileDir
-  await rm(directory, { recursive: true, force: true })
 }

@@ -46,9 +46,3 @@ export function recentWorkspaceId(
   }
   return selected
 }
-
-/** 旧版提供聚合字段；alpha.5 起由工作区和会话两个 Store 分别报告基线阶段。 */
-export function workspaceBaselinesReady(workspaces: object, sessions: object): boolean {
-  if ('baselinesReady' in workspaces) return workspaces.baselinesReady === true
-  return 'phase' in workspaces && workspaces.phase === 'ready' && 'phase' in sessions && sessions.phase === 'ready'
-}
